@@ -15,6 +15,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"{bot.user} 연결됨")
+    try:
+        await bot.tree.sync()
+    except Exception as e:
+        print(f"슬래시 명령 동기화 실패: {e}")
 
 # Music Cog 등록
 from cogs.music import Music
