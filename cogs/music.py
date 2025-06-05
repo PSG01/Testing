@@ -234,7 +234,7 @@ class Music(commands.Cog):
 
     @app_commands.command(name="setmusicchannel", description="뮤직 채널을 지정합니다.")
     @app_commands.describe(channel="채널")
-    @app_commands.checks.has_guild_permissions(manage_guild=True)
+    @app_commands.checks.has_permissions(manage_guild=True)
     async def set_music_channel_slash(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
         target = channel or interaction.channel
         self.music_channel_per_guild[interaction.guild.id] = target.id
