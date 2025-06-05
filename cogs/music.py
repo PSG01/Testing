@@ -4,6 +4,8 @@ import discord
 from discord.ext import commands
 from discord import Embed, Colour
 import asyncio
+import os
+import json
 import yt_dlp as youtube_dl
 from typing import Dict, List
 from discord.ui import View, Button, button
@@ -23,12 +25,46 @@ class Music(commands.Cog):
         self.bot = bot
         # guild_id -> 지정된 뮤직 채널 ID
         self.music_channel_per_guild: Dict[int, int] = {}
+        self.channel_path = os.path.join("data", "music_channels.json")
+        if os.path.isfile(self.channel_path):
+            with open(self.channel_path, "r", encoding="utf-8") as f:
+                self.music_channel_per_guild = {int(k): v for k, v in json.load(f).items()}
+        else:
+            os.makedirs("data", exist_ok=True)
+            with open(self.channel_path, "w", encoding="utf-8") as f:
+                json.dump({}, f)
         # guild_id -> List[Dict] (각 곡 정보: url, title, duration, uploader, requester, thumbnail)
         self.guild_queues: Dict[int, List[Dict]] = {}
         # guild_id -> 현재 재생 중 음성 클라이언트
         self.voice_clients: Dict[int, discord.VoiceClient] = {}
-        # guild_id -> 현재 재생 중 메시지 객체 (임베드 후편집용)
+        # guild_id -> 현재 재생 중 메시지 객체 (임베드 삭제용)
         self.now_playing_msg: Dict[int, discord.Message] = {}
+
+        # guild_id -> 플레이리스트 이름별 URL 목록 저장
+        self.playlist_path = os.path.join("data", "playlists.json")
+        if os.path.isfile(self.playlist_path):
+            with open(self.playlist_path, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+                self.playlists: Dict[int, Dict[str, List[str]]] = {int(g): v for g, v in raw.items()}
+        else:
+            self.playlists = {}
+
+    async def _delete_after(self, msg: discord.Message, delay: float = 5.0):
+        try:
+            await asyncio.sleep(delay)
+            await msg.delete()
+        except Exception:
+            pass
+
+    async def cleanup_now_playing(self, guild_id: int, delay: float = 5.0):
+        msg = self.now_playing_msg.pop(guild_id, None)
+        if msg:
+            asyncio.create_task(self._delete_after(msg, delay))
+
+    def save_playlists(self):
+        os.makedirs("data", exist_ok=True)
+        with open(self.playlist_path, "w", encoding="utf-8") as f:
+            json.dump({str(g): v for g, v in self.playlists.items()}, f, ensure_ascii=False, indent=4)
 
     # 1) 지정된 뮤직 채널 검사
     def is_music_channel(self, ctx) -> bool:
@@ -64,22 +100,17 @@ class Music(commands.Cog):
 
         track = queue.pop(0)
         source = await discord.FFmpegOpusAudio.from_probe(
-            track["webpage_url"],
-            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+            track["webpage_url"], before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
         )
-        voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(guild_id), self.bot.loop))
+        voice_client.play(
+            source, after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(guild_id), self.bot.loop)
+        )
 
         channel_id = self.music_channel_per_guild.get(guild_id)
         channel = self.bot.get_channel(channel_id)
+        await self.cleanup_now_playing(guild_id)
         embed = self.build_now_playing_embed(guild_id, track)
-        prev_msg = self.now_playing_msg.get(guild_id)
-        if prev_msg:
-            try:
-                await prev_msg.edit(embed=embed)
-            except:
-                self.now_playing_msg[guild_id] = await channel.send(embed=embed)
-        else:
-            self.now_playing_msg[guild_id] = await channel.send(embed=embed)
+        self.now_playing_msg[guild_id] = await channel.send(embed=embed)
 
     # 4) 지금 재생 중 임베드 생성
     def build_now_playing_embed(self, guild_id: int, track: Dict) -> Embed:
@@ -94,15 +125,9 @@ class Music(commands.Cog):
         time_str = f"{minutes:02d}:{seconds:02d}"
 
         embed = Embed(title="🎶 지금 재생 중", colour=Colour.gold())
+        embed.add_field(name="곡 정보", value=f"[{title}]({url})\n```시간: {time_str}```", inline=False)
         embed.add_field(
-            name="곡 정보",
-            value=f"[{title}]({url})\n```시간: {time_str}```",
-            inline=False
-        )
-        embed.add_field(
-            name="요청자 · 업로더",
-            value=f"**요청자:** {requester.mention}\n**업로더:** {uploader}",
-            inline=True
+            name="요청자 · 업로더", value=f"**요청자:** {requester.mention}\n**업로더:** {uploader}", inline=True
         )
         if thumbnail_url:
             embed.set_thumbnail(url=thumbnail_url)
@@ -157,7 +182,6 @@ class Music(commands.Cog):
                 embed = await self.cog.build_queue_embed(self.guild_id, self.current_page)
                 await interaction.response.edit_message(embed=embed, view=self)
 
-
     # ================================
     # 커맨드 정의
     # ================================
@@ -168,6 +192,8 @@ class Music(commands.Cog):
         """뮤직 채널을 지정합니다. (관리자 권한 필요)"""
         target = channel or ctx.channel
         self.music_channel_per_guild[ctx.guild.id] = target.id
+        with open(self.channel_path, "w", encoding="utf-8") as f:
+            json.dump({str(k): v for k, v in self.music_channel_per_guild.items()}, f, ensure_ascii=False, indent=4)
         await ctx.send(f"✅ 이 서버의 뮤직 채널이 {target.mention}(으)로 설정되었습니다.")
 
     @commands.command(name="join")
@@ -291,3 +317,85 @@ class Music(commands.Cog):
         self.voice_clients.pop(ctx.guild.id, None)
         self.now_playing_msg.pop(ctx.guild.id, None)
         await ctx.send("⏹ 재생 중인 음악을 모두 중단하고 음성 채널에서 나왔습니다.")
+
+    @commands.command(name="saveplaylist")
+    async def save_playlist(self, ctx: commands.Context, name: str):
+        if not self.is_music_channel(ctx):
+            await ctx.send("먼저 `!setmusicchannel` 명령어로 이 서버의 뮤직 채널을 지정해주세요.")
+            return
+        queue = self.guild_queues.get(ctx.guild.id)
+        if not queue:
+            await ctx.send("저장할 대기열이 없습니다.")
+            return
+        urls = [track["webpage_url"] for track in queue]
+        playlists = self.playlists.setdefault(ctx.guild.id, {})
+        playlists[name] = urls
+        self.save_playlists()
+        await ctx.send(f"💾 **{name}** 플레이리스트를 저장했습니다. ({len(urls)}곡)")
+
+    @commands.command(name="loadplaylist")
+    async def load_playlist(self, ctx: commands.Context, name: str):
+        if not self.is_music_channel(ctx):
+            await ctx.send("먼저 `!setmusicchannel` 명령어로 이 서버의 뮤직 채널을 지정해주세요.")
+            return
+        playlists = self.playlists.get(ctx.guild.id, {})
+        urls = playlists.get(name)
+        if not urls:
+            await ctx.send("해당 플레이리스트가 없습니다.")
+            return
+        queue = self.guild_queues.setdefault(ctx.guild.id, [])
+        for url in urls:
+            info = await self.extract_info(url)
+            info["requester"] = ctx.author
+            queue.append(info)
+        await ctx.send(f"▶️ **{name}** 플레이리스트를 불러왔습니다. ({len(urls)}곡)")
+        voice_client = self.voice_clients.get(ctx.guild.id)
+        if not voice_client or not voice_client.is_connected():
+            if not ctx.author.voice or not ctx.author.voice.channel:
+                await ctx.send("음성 채널에 먼저 참여해주세요.")
+                return
+            voice_client = await ctx.author.voice.channel.connect()
+            self.voice_clients[ctx.guild.id] = voice_client
+        if not voice_client.is_playing() and not voice_client.is_paused():
+            await self.play_next(ctx.guild.id)
+
+    @commands.command(name="listplaylists")
+    async def list_playlists(self, ctx: commands.Context):
+        playlists = self.playlists.get(ctx.guild.id, {})
+        if not playlists:
+            await ctx.send("저장된 플레이리스트가 없습니다.")
+            return
+        desc = "\n".join(f"• {name} ({len(urls)}곡)" for name, urls in playlists.items())
+        embed = Embed(title="🎵 저장된 플레이리스트", description=desc, colour=Colour.blue())
+        await ctx.send(embed=embed)
+
+    @commands.command(name="deleteplaylist")
+    async def delete_playlist(self, ctx: commands.Context, name: str):
+        playlists = self.playlists.get(ctx.guild.id, {})
+        if name not in playlists:
+            await ctx.send("해당 플레이리스트가 없습니다.")
+            return
+        playlists.pop(name)
+        self.save_playlists()
+        await ctx.send(f"🗑️ **{name}** 플레이리스트를 삭제했습니다.")
+
+    # ================================
+    # 이벤트 리스너
+    # ================================
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot or not message.guild:
+            return
+        guild_id = message.guild.id
+        channel_id = self.music_channel_per_guild.get(guild_id)
+        if channel_id is None or message.channel.id != channel_id:
+            return
+
+        # 사용자가 입력한 경우 이전 임베드 삭제 예약
+        await self.cleanup_now_playing(guild_id)
+
+        ctx = await self.bot.get_context(message)
+        if ctx.command is None:
+            await ctx.invoke(self.play, search=message.content)
+        await self.bot.process_commands(message)
