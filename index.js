@@ -218,6 +218,8 @@ function ensurePlayer({ guild, voiceChannel, textChannel }) {
 }
 
 async function playQuery({ guild, voiceChannel, textChannel, query, requester }) {
+  // 음악 채널 미설정 시 재생 차단 (검색/차트 등 모든 경로 공통)
+  if (!getConfig(guild.id)) return { ok: false, msg: "`/셋업` 으로 먼저 채널을 지정해주세요." };
   const player = ensurePlayer({ guild, voiceChannel, textChannel });
   if (!player.connected) await player.connect();
 
@@ -274,6 +276,12 @@ process.on("uncaughtException", (err) => console.error("⚠️ 미처리 예외(
 
 async function onCommand(interaction) {
   const cfg = getConfig(interaction.guildId);
+  // 음악 채널 미설정 시 음악 기능 차단
+  if (!cfg && MUSIC_CMDS.has(interaction.commandName))
+    return interaction.reply({
+      content: "⚠️ `/셋업` 으로 먼저 채널을 지정해주세요.",
+      ephemeral: true,
+    });
   if (cfg && MUSIC_CMDS.has(interaction.commandName) && interaction.channelId !== cfg.channelId)
     return interaction.reply({
       content: `⚠️ 음악 명령은 <#${cfg.channelId}> 에서만 사용할 수 있어요.`,
