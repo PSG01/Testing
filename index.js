@@ -59,6 +59,19 @@ const commandData = [
   ...casino.commandsJSON,
   ...rpg.commandsJSON,
 ];
+// 안전장치: 모듈(음악/카지노/던전)을 합친 전체 네임스페이스에서 이름 중복 검사.
+// 중복이 있으면 디스코드가 등록을 전부 거부하므로, 시작 시점에 크게 알리고 뒤의 것을 제외한다.
+{
+  const seen = new Map();
+  for (let i = commandData.length - 1; i >= 0; i--) {
+    const n = commandData[i].name;
+    if (seen.has(n)) {
+      console.error(`🚨 명령어 이름 중복: /${n} — 나중에 정의된 쪽을 제외하고 등록합니다. 코드에서 한쪽을 제거하세요!`);
+      commandData.splice(seen.get(n), 1);
+    }
+    seen.set(n, i);
+  }
+}
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 // 특정 서버에 명령어를 즉시 등록 (전역 반영 1시간을 안 기다려도 됨)
