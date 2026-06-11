@@ -9,22 +9,27 @@ const norm = (rows) => {
   return rows.map((r) => r.padEnd(w, "."));
 };
 
-// ── 사람 베이스 (20x24) — 오른쪽을 바라봄 ─────────────────────────
+// ── 사람 베이스 (20x26) — 오른쪽을 바라봄. 위 2줄은 모자/뿔 여백 ──
 // K외곽선 S피부 t피부그늘 E눈 w눈빛 H머리 h머리그늘 i머리하이라이트
 // C옷 c옷그늘 l옷하이라이트 D하의 d하의그늘 B신발 b신발그늘 A포인트
-const HUMAN_IDLE = norm([
+const HEAD_ROWS = [
+  "",
+  "",
   "......KKKKKK",
   "....KKiiHHHHKK",
   "...KiiiHHHHHHhK",
   "..KiiHHHHHHHHhhK",
   "..KiHHHHHHHHHHhK",
   "..KHHSSSSSSSSthK",
-  "..KHSSSSSSSSSthK",
+  "..KSSEwSSSEwSttK",
   "..KSSEwSSSEwSttK",
   "..KSSEESSSEESttK",
-  "..KtSSSSSSSSSttK",
+  "..KtSSSKKSSSSttK",
   "...KtSSSSSSSttK",
   "....KKttttttKK",
+];
+const HUMAN_IDLE = norm([
+  ...HEAD_ROWS,
   "....KKKCCCCKK",
   "...KCClCCCCCcK",
   "..KSKllCCCCCcKK",
@@ -39,18 +44,7 @@ const HUMAN_IDLE = norm([
   "....KKKK.KKKK",
 ]);
 const HUMAN_ATK = norm([
-  "......KKKKKK",
-  "....KKiiHHHHKK",
-  "...KiiiHHHHHHhK",
-  "..KiiHHHHHHHHhhK",
-  "..KiHHHHHHHHHHhK",
-  "..KHHSSSSSSSSthK",
-  "..KHSSSSSSSSSthK",
-  "..KSSEwSSSEwSttK",
-  "..KSSEESSSEESttK",
-  "..KtSSSSSSSSSttK",
-  "...KtSSSSSSSttK",
-  "....KKttttttKK",
+  ...HEAD_ROWS,
   "....KKKCCCCKKK",
   "...KCClCCCCCKSSK",
   "..KSKllCCCCCcKSK",
@@ -69,9 +63,25 @@ const HUMAN_ATK = norm([
 // 'W'=금속 'M'=어두운금속 'A'=포인트색 'G'=나무 'w'=반짝 'K'=외곽선
 const pad = (rows) => norm(rows.map((r) => (r + ".".repeat(30)).slice(0, 30)));
 
+// 직업별 머리 장식(투구/후드/모자) — 사람 그리드와 같은 좌표계, 몸 위에 덧그림
 const GEAR = {
   warrior: {
-    pal: { H: "#7a4a2a", C: "#aab4c8", D: "#6e7a92", B: "#5a4632", A: "#caa84a" },
+    pal: { H: "#8a2434", C: "#aab4c8", D: "#6e7a92", B: "#5a4632", A: "#caa84a", E: "#ff5a3a" },
+    head: norm([
+      ".KAK..........KAK",
+      ".KAHK........KHAK",
+      "..KHHHHHHHHHHhhK",
+      "..KiHHHHHHHHHhhK",
+      "..KiHHHHHHHHHhhK",
+      "..KHHHHHHHHHHhhK",
+      "..KHHHHHHHHHHhhK",
+      "..KhhhhhhhhhhhhK",
+      "..KKKEwKKKEwKKKK",
+      "..KKKEwKKKEwKKKK",
+      "..KhKKKKKKKKKKhK",
+      "..KHKhKhKKhKhhhK",
+      "...KHHHHHHHHHhK",
+    ]),
     idle: pad([
       "", "", "", "",
       "................w",
@@ -104,7 +114,21 @@ const GEAR = {
     ]),
   },
   berserker: {
-    pal: { H: "#b03020", C: "#8a5a3a", D: "#5a3a26", B: "#3a2a1c", A: "#cfd6e6" },
+    pal: { H: "#b03020", C: "#8a5a3a", D: "#5a3a26", B: "#3a2a1c", A: "#cfd6e6", p: "#d83030" },
+    head: norm([
+      "KWWK............KWWK",
+      "KWWWK..........KWWWK",
+      ".KWWWK........KWWWK",
+      "..KWWK........KWWK",
+      "...KWK........KWK",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "...pp........pp",
+      "....p..........p",
+    ]),
     idle: pad([
       "", "",
       ".............KKKK",
@@ -136,6 +160,14 @@ const GEAR = {
   },
   mage: {
     pal: { H: "#3a2a6b", C: "#6a4ad0", D: "#4a2f9a", B: "#2a1c5a", A: "#36e6ff" },
+    head: norm([
+      ".........KiK",
+      "........KiHHK",
+      ".......KiHHHhK",
+      "......KHHHAHHhK",
+      ".KHHHHHHHHHHHHHHK",
+      "..KhhhhhhhhhhhhhK",
+    ]),
     idle: pad([
       "", "",
       "...............KAAK",
@@ -168,7 +200,23 @@ const GEAR = {
     ]),
   },
   rogue: {
-    pal: { H: "#222230", C: "#3a4254", D: "#262c3a", B: "#1c2230", A: "#cfd6e6" },
+    pal: { H: "#2a5a44", C: "#3a4254", D: "#262c3a", B: "#1c2230", A: "#cfd6e6", E: "#ffd23a" },
+    head: norm([
+      "",
+      "",
+      "......KKKKKK",
+      "....KKHHHHHHKK",
+      "...KHHHHHHHHHhK",
+      "..KiHHHHHHHHHhhK",
+      "..KHHHHHHHHHHhhK",
+      "..KHhhhhhhhhhhhK",
+      "..KHKEwKKKEwKhhK",
+      "..KHKEwKKKEwKhhK",
+      "..KHKKKKKKKKKhhK",
+      "..KHccccccccchhK",
+      "...KhccccccchhK",
+      "....KKhhhhhhKK",
+    ]),
     idle: pad([
       "", "", "", "", "", "", "", "", "", "",
       "...............KAK",
@@ -189,7 +237,22 @@ const GEAR = {
     ]),
   },
   archer: {
-    pal: { H: "#caa84a", C: "#3a7a4a", D: "#2a5a36", B: "#4a3a26", A: "#8a6a4a" },
+    pal: { H: "#5a7a3a", C: "#3a7a4a", D: "#2a5a36", B: "#4a3a26", A: "#8a6a4a" },
+    head: norm([
+      "",
+      "",
+      "......KKKKKK",
+      "....KKHHHHHHKK",
+      "...KHHHHHHHHHhK",
+      "..KiHHHHHHHHHhhK",
+      "..KHHhhhhhhhhhhK",
+      "..KHhK......KhhK",
+      "..KHK........KhK",
+      "..KHK........KhK",
+      "..KHK........KhK",
+      "..KHhK......KhhK",
+      "...KhhK....KhhK",
+    ]),
     idle: pad([
       "", "", "",
       "................KAK",
@@ -214,7 +277,22 @@ const GEAR = {
     ]),
   },
   priest: {
-    pal: { H: "#e8d8b8", C: "#f0e8d8", D: "#caa84a", B: "#8a7a5a", A: "#ffd23a" },
+    pal: { H: "#f0e8d8", C: "#f0e8d8", D: "#caa84a", B: "#8a7a5a", A: "#ffd23a" },
+    head: norm([
+      "",
+      "",
+      "......KKKKKK",
+      "....KKHHHHHHKK",
+      "...KHHHHHHHHHhK",
+      "..KAAAAAAAAAAAAK",
+      "..KHHhhhhhhhhhhK",
+      "..KHhK......KhhK",
+      "..KHK........KhK",
+      "..KHK........KhK",
+      "..KHK........KhK",
+      "..KHhK......KhhK",
+      "...KhhK....KhhK",
+    ]),
     idle: pad([
       "...............KAAK",
       "..............KAwwAK",
@@ -248,6 +326,12 @@ const GEAR = {
     ]),
   },
 };
+
+// 무기 오버레이는 머리 여백 2줄이 생기기 전 좌표로 그려져 있어 2줄 내려 맞춤
+for (const g of Object.values(GEAR)) {
+  g.idle = norm(["", "", ...g.idle]);
+  g.atk = norm(["", "", ...g.atk]);
+}
 
 const BASE_PAL = {
   K: "#1a1420", S: "#f0c8a0", t: "#d2a47c", E: "#1a1420", w: "#ffffff",
@@ -465,7 +549,11 @@ function hero(classKey, x, y, px, pose = "idle", { flip = false, white = false }
   const body = pose === "atk" ? HUMAN_ATK : HUMAN_IDLE;
   const weapon = pose === "atk" ? gear.atk : gear.idle;
   // EPX 2배 정밀화 후 절반 픽셀로 렌더 → 화면 크기 동일, 해상도 2배
-  return `<g shape-rendering="crispEdges">${drawGrid(grid2x(body), pal, x, y, px / 2, { flip, white })}${drawGrid(grid2x(weapon), pal, x, y, px / 2, { flip, white })}</g>`;
+  // 그리는 순서: 몸 → 머리 장식(투구/후드) → 무기
+  let s = drawGrid(grid2x(body), pal, x, y, px / 2, { flip, white });
+  if (gear.head) s += drawGrid(grid2x(gear.head), pal, x, y, px / 2, { flip, white });
+  s += drawGrid(grid2x(weapon), pal, x, y, px / 2, { flip, white });
+  return `<g shape-rendering="crispEdges">${s}</g>`;
 }
 
 function mob(key, x, y, px, { white = false } = {}) {

@@ -3,8 +3,8 @@ const px = require("./px-sprites");
 const { svgToPng, framesToGif, easeOutCubic } = require("./utils");
 
 const W = 480, H = 320;
-const PXS = 4; // 픽셀 크기 (20x24 스프라이트 → 80x96)
-const PXX = 70, PXY = 124;   // 플레이어 스프라이트 좌상단 (발이 226 그림자선에 닿게)
+const PXS = 4; // 픽셀 크기 (20x26 스프라이트 → 80x104)
+const PXX = 70, PXY = 116;   // 플레이어 스프라이트 좌상단 (발이 226 그림자선에 닿게)
 
 function mobPos(key) {
   const sz = px.mobSize(key, PXS);

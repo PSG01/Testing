@@ -4,8 +4,8 @@ const { CARDS, getCard } = require("./sts");
 const { svgToPng, framesToGif, easeOutCubic } = require("./utils");
 
 const W = 520, H = 400;
-const PXS = 4; // 20x24 스프라이트 → 80x96
-const PXX = 78, PXY = 112; // 발이 218 그림자선에 닿게
+const PXS = 4; // 20x26 스프라이트 → 80x104
+const PXX = 78, PXY = 104; // 발이 218 그림자선에 닿게
 
 function mobPos(key) {
   const sz = px.mobSize(key, PXS);
