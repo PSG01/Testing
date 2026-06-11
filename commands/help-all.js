@@ -9,7 +9,11 @@ module.exports = {
     const casino = require("../casino");
     const rpg = require("../sts-commands");
 
-    const line = (c) => `\`/${c.name}\` — ${c.description}`;
+    // 서브커맨드(type 1)가 있으면 이름 옆에 같이 표시 — 예: /플리 (저장·재생·추가·정보·목록·삭제)
+    const line = (c) => {
+      const subs = (c.options || []).filter((o) => o.type === 1).map((o) => o.name);
+      return `\`/${c.name}\`${subs.length ? ` (${subs.join("·")})` : ""} — ${c.description}`;
+    };
     const music = [...client.commands.values()]
       .map((c) => c.data.toJSON())
       .filter((c) => c.name !== "명령어")
