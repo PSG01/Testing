@@ -397,6 +397,33 @@ const MOBS = {
 };
 
 // ── 렌더 함수 ─────────────────────────────────────────────────────
+// EPX(Scale2x): 도트를 2배 해상도로 키우면서 대각선 계단을 둥글림.
+// 원본 그리드는 손으로 찍기 쉬운 크기로 유지하고, 출력만 2배 정밀화.
+function scale2x(grid) {
+  const h = grid.length, w = Math.max(...grid.map((r) => r.length));
+  const at = (r, c) => (r < 0 || r >= h || c < 0 || c >= w ? "." : (grid[r][c] || "."));
+  const out = Array.from({ length: h * 2 }, () => new Array(w * 2).fill("."));
+  for (let r = 0; r < h; r++) {
+    for (let c = 0; c < w; c++) {
+      const P = at(r, c);
+      const A = at(r - 1, c), B = at(r, c + 1), C = at(r, c - 1), D = at(r + 1, c);
+      let p1 = P, p2 = P, p3 = P, p4 = P;
+      if (C === A && C !== D && A !== B) p1 = A;
+      if (A === B && A !== C && B !== D) p2 = B;
+      if (D === C && D !== B && C !== A) p3 = C;
+      if (B === D && B !== A && D !== C) p4 = D;
+      out[r * 2][c * 2] = p1; out[r * 2][c * 2 + 1] = p2;
+      out[r * 2 + 1][c * 2] = p3; out[r * 2 + 1][c * 2 + 1] = p4;
+    }
+  }
+  return out.map((row) => row.join(""));
+}
+const memo2x = new Map();
+function grid2x(grid) {
+  if (!memo2x.has(grid)) memo2x.set(grid, scale2x(grid));
+  return memo2x.get(grid);
+}
+
 function drawGrid(grid, pal, x, y, px, { flip = false, white = false } = {}) {
   let s = "";
   const wch = Math.max(...grid.map((r) => r.length));
@@ -437,12 +464,13 @@ function hero(classKey, x, y, px, pose = "idle", { flip = false, white = false }
   pal.l = lighten(pal.C, 0.35); pal.i = lighten(pal.H, 0.35);
   const body = pose === "atk" ? HUMAN_ATK : HUMAN_IDLE;
   const weapon = pose === "atk" ? gear.atk : gear.idle;
-  return `<g shape-rendering="crispEdges">${drawGrid(body, pal, x, y, px, { flip, white })}${drawGrid(weapon, pal, x, y, px, { flip, white })}</g>`;
+  // EPX 2배 정밀화 후 절반 픽셀로 렌더 → 화면 크기 동일, 해상도 2배
+  return `<g shape-rendering="crispEdges">${drawGrid(grid2x(body), pal, x, y, px / 2, { flip, white })}${drawGrid(grid2x(weapon), pal, x, y, px / 2, { flip, white })}</g>`;
 }
 
 function mob(key, x, y, px, { white = false } = {}) {
   const m = MOBS[key] || MOBS.slime;
-  return `<g shape-rendering="crispEdges">${drawGrid(m.grid, m.pal, x, y, px, { flip: true, white })}</g>`;
+  return `<g shape-rendering="crispEdges">${drawGrid(grid2x(m.grid), m.pal, x, y, px / 2, { flip: true, white })}</g>`;
 }
 
 function mobSize(key, px) {
