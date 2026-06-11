@@ -30,6 +30,6 @@ module.exports = {
         .setFooter({ text: "게임은 재미용 가짜 코인입니다 (실제 돈·도박과 무관)" }),
     ];
 
-    return interaction.reply({ embeds, ephemeral: true });
+    return interaction.reply({ embeds, flags: 64 });
   },
 };

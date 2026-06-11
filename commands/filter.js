@@ -25,10 +25,10 @@ module.exports = {
   async execute(interaction, client) {
     const player = client.lavalink.getPlayer(interaction.guild.id);
     if (!player || !player.queue.current)
-      return interaction.reply({ content: "⚠️ 재생 중이 아니에요.", ephemeral: true });
+      return interaction.reply({ content: "⚠️ 재생 중이 아니에요.", flags: 64 });
 
     const voiceCheck = checkVoice(interaction, player);
-    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, ephemeral: true });
+    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, flags: 64 });
 
     const key = interaction.options.getString("종류");
     const filter = FILTERS[key];

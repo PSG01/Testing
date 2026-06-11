@@ -96,7 +96,7 @@ async function handleCommand(interaction) {
   const userId = interaction.user.id;
   switch (interaction.commandName) {
     case "등반": {
-      if (runs.has(userId)) return interaction.reply({ content: "⚠️ 이미 등반 중이에요! 진행 중인 전투 메시지에서 이어가 주세요.", ephemeral: true });
+      if (runs.has(userId)) return interaction.reply({ content: "⚠️ 이미 등반 중이에요! 진행 중인 전투 메시지에서 이어가 주세요.", flags: 64 });
       const row = new ActionRowBuilder();
       for (const [key, c] of Object.entries(sts.CHARS))
         row.addComponents(new ButtonBuilder().setCustomId(`sts_char_${userId}_${key}`).setLabel(c.name).setEmoji(c.emoji).setStyle(ButtonStyle.Primary));
@@ -109,7 +109,7 @@ async function handleCommand(interaction) {
     }
     case "등반포기": {
       const run = runs.get(userId);
-      if (!run) return interaction.reply({ content: "⚠️ 진행 중인 등반이 없어요.", ephemeral: true });
+      if (!run) return interaction.reply({ content: "⚠️ 진행 중인 등반이 없어요.", flags: 64 });
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`sts_quit_${userId}_yes`).setLabel("포기한다").setEmoji("🏳️").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId(`sts_quit_${userId}_no`).setLabel("계속 등반").setStyle(ButtonStyle.Secondary)
@@ -118,18 +118,18 @@ async function handleCommand(interaction) {
         embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle("🏳️ 등반 포기")
           .setDescription(`정말 포기할까요? **${run.floor + 1}층** 진행 상황(덱 ${run.deck.length}장, 유물 ${(run.relics || []).length}개)이 삭제됩니다.\n모은 코인은 유지돼요.`)],
         components: [row],
-        ephemeral: true,
+        flags: 64,
       });
     }
     case "내덱": {
       const run = runs.get(userId);
-      if (!run) return interaction.reply({ content: "⚠️ 진행 중인 등반이 없어요. `/등반` 으로 시작해 보세요!", ephemeral: true });
+      if (!run) return interaction.reply({ content: "⚠️ 진행 중인 등반이 없어요. `/등반` 으로 시작해 보세요!", flags: 64 });
       const counts = {};
       for (const k of run.deck) counts[k] = (counts[k] || 0) + 1;
       const list = Object.entries(counts).map(([k, n]) => `• **${sts.getCard(k).name}**${n > 1 ? ` ×${n}` : ""} — ${sts.getCard(k).desc}`).join("\n");
       const relics = (run.relics || []).map((k) => `${sts.RELICS[k].emoji} **${sts.RELICS[k].name}** — ${sts.RELICS[k].desc}`).join("\n") || "없음";
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5a4a8a).setTitle(`🃏 내 덱 (${run.deck.length}장)`)
-        .setDescription(list).addFields({ name: "🏺 유물", value: relics })], ephemeral: true });
+        .setDescription(list).addFields({ name: "🏺 유물", value: relics })], flags: 64 });
     }
   }
 }
@@ -195,7 +195,7 @@ async function handleButton(interaction) {
   else { owner = parts[2]; arg = parts[3]; }
 
   if (interaction.user.id !== owner)
-    return (await interaction.reply({ content: "⚠️ 본인 등반만 조작할 수 있어요.", ephemeral: true }), true);
+    return (await interaction.reply({ content: "⚠️ 본인 등반만 조작할 수 있어요.", flags: 64 }), true);
 
   // 캐릭터 선택 → 런 시작
   if (action === "char") {
@@ -207,7 +207,7 @@ async function handleButton(interaction) {
   }
 
   const run = runs.get(owner);
-  if (!run) return (await interaction.reply({ content: "⚠️ 진행 중인 등반이 없어요. `/등반` 으로 시작!", ephemeral: true }), true);
+  if (!run) return (await interaction.reply({ content: "⚠️ 진행 중인 등반이 없어요. `/등반` 으로 시작!", flags: 64 }), true);
 
   // 등반 포기 확인
   if (action === "quit") {

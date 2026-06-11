@@ -24,20 +24,20 @@ module.exports = {
   async execute(interaction, client) {
     const player = client.lavalink.getPlayer(interaction.guild.id);
     if (!player || !player.queue.current)
-      return interaction.reply({ content: "⚠️ 재생 중이 아니에요.", ephemeral: true });
+      return interaction.reply({ content: "⚠️ 재생 중이 아니에요.", flags: 64 });
 
     const voiceCheck = checkVoice(interaction, player);
-    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, ephemeral: true });
+    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, flags: 64 });
 
     const track = player.queue.current;
     if (track.info.isStream)
-      return interaction.reply({ content: "⚠️ 라이브 스트림은 구간 이동을 할 수 없어요.", ephemeral: true });
+      return interaction.reply({ content: "⚠️ 라이브 스트림은 구간 이동을 할 수 없어요.", flags: 64 });
 
     const pos = parseTime(interaction.options.getString("시간"));
     if (pos === null)
-      return interaction.reply({ content: "⚠️ 시간 형식이 올바르지 않아요. 예: `1:30`, `90`, `1:02:03`", ephemeral: true });
+      return interaction.reply({ content: "⚠️ 시간 형식이 올바르지 않아요. 예: `1:30`, `90`, `1:02:03`", flags: 64 });
     if (pos >= track.info.duration)
-      return interaction.reply({ content: `⚠️ 곡 길이(${msToTime(track.info.duration)})를 넘는 위치예요.`, ephemeral: true });
+      return interaction.reply({ content: `⚠️ 곡 길이(${msToTime(track.info.duration)})를 넘는 위치예요.`, flags: 64 });
 
     await player.seek(pos);
     return interaction.reply(`⏩ **${msToTime(pos)}** 지점으로 이동했어요. (전체 ${msToTime(track.info.duration)})`);

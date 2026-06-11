@@ -71,7 +71,7 @@ async function handleCommand(interaction) {
   switch (interaction.commandName) {
     case "직업선택": {
       if (rpg.getChar(userId))
-        return interaction.reply({ content: "⚠️ 이미 캐릭터가 있어요! `/내정보`로 확인해 보세요.", ephemeral: true });
+        return interaction.reply({ content: "⚠️ 이미 캐릭터가 있어요! `/내정보`로 확인해 보세요.", flags: 64 });
       const menu = new StringSelectMenuBuilder().setCustomId(`rpg_class_${userId}`).setPlaceholder("직업을 골라주세요");
       for (const [key, c] of Object.entries(rpg.CLASSES))
         menu.addOptions({ label: `${c.name}`, value: key, emoji: c.emoji, description: `HP${c.hp} ATK${c.atk} DEF${c.def} · ${c.skill.name}: ${c.skill.desc}` });
@@ -79,13 +79,13 @@ async function handleCommand(interaction) {
         embeds: [new EmbedBuilder().setColor(0x5a4a8a).setTitle("🛡️ 직업 선택")
           .setDescription("아래에서 직업을 골라 캐릭터를 만들어 보세요.\n던전(`/던전`)에서 몬스터를 잡으면 코인과 경험치를 얻습니다!")],
         components: [new ActionRowBuilder().addComponents(menu)],
-        ephemeral: true,
+        flags: 64,
       });
     }
     case "던전": {
       const ch = rpg.getChar(userId);
-      if (!ch) return interaction.reply({ content: "⚠️ 먼저 `/직업선택`으로 캐릭터를 만들어 주세요!", ephemeral: true });
-      if (battles.has(userId)) return interaction.reply({ content: "⚠️ 이미 전투 중이에요! 진행 중인 전투를 끝내 주세요.", ephemeral: true });
+      if (!ch) return interaction.reply({ content: "⚠️ 먼저 `/직업선택`으로 캐릭터를 만들어 주세요!", flags: 64 });
+      if (battles.has(userId)) return interaction.reply({ content: "⚠️ 이미 전투 중이에요! 진행 중인 전투를 끝내 주세요.", flags: 64 });
       await interaction.deferReply();
       const b = newBattle(userId, ch, 1);
       const png = await render.scenePng(b, `${b.mob.name}이(가) 나타났다!`);
@@ -97,7 +97,7 @@ async function handleCommand(interaction) {
     }
     case "내정보": {
       const ch = rpg.getChar(userId);
-      if (!ch) return interaction.reply({ content: "⚠️ 캐릭터가 없어요. `/직업선택`으로 만들어 보세요!", ephemeral: true });
+      if (!ch) return interaction.reply({ content: "⚠️ 캐릭터가 없어요. `/직업선택`으로 만들어 보세요!", flags: 64 });
       const s = rpg.statsOf(ch);
       return interaction.reply({
         embeds: [new EmbedBuilder().setColor(0x5a4a8a).setAuthor(authorTag(interaction.user))
@@ -118,8 +118,8 @@ async function handleGrind(interaction) {
   const userId = interaction.user.id;
   const r = rpg.grind(userId);
   if (!r.ok) {
-    if (r.reason === "no_char") return interaction.reply({ content: "⚠️ 먼저 `/직업선택`으로 캐릭터를 만들어 주세요!", ephemeral: true });
-    return interaction.reply({ content: `⏱️ 아직 쉬는 중이에요. ${fmtMin(r.remaining)} 뒤에 다시 일할 수 있어요.`, ephemeral: true });
+    if (r.reason === "no_char") return interaction.reply({ content: "⚠️ 먼저 `/직업선택`으로 캐릭터를 만들어 주세요!", flags: 64 });
+    return interaction.reply({ content: `⏱️ 아직 쉬는 중이에요. ${fmtMin(r.remaining)} 뒤에 다시 일할 수 있어요.`, flags: 64 });
   }
   economy.addBalance(userId, r.coins);
   const balance = economy.getUser(userId).balance;
@@ -139,7 +139,7 @@ async function handleButton(interaction) {
 
   // 직업 선택 메뉴
   if (action === "class" && interaction.isStringSelectMenu()) {
-    if (interaction.user.id !== ownerId) return (await interaction.reply({ content: "⚠️ 본인 메뉴만 선택할 수 있어요.", ephemeral: true }), true);
+    if (interaction.user.id !== ownerId) return (await interaction.reply({ content: "⚠️ 본인 메뉴만 선택할 수 있어요.", flags: 64 }), true);
     const key = interaction.values[0];
     const ch = rpg.createChar(ownerId, interaction.user.username, key);
     const c = rpg.CLASSES[key];
@@ -152,7 +152,7 @@ async function handleButton(interaction) {
   }
 
   if (interaction.user.id !== ownerId)
-    return (await interaction.reply({ content: "⚠️ 본인 전투만 조작할 수 있어요.", ephemeral: true }), true);
+    return (await interaction.reply({ content: "⚠️ 본인 전투만 조작할 수 있어요.", flags: 64 }), true);
 
   const ch = rpg.getChar(ownerId);
   const b = battles.get(ownerId);
@@ -182,7 +182,7 @@ async function handleButton(interaction) {
     return true;
   }
 
-  if (!b) return (await interaction.reply({ content: "⚠️ 진행 중인 전투가 없어요. `/던전` 으로 입장해 주세요.", ephemeral: true }), true);
+  if (!b) return (await interaction.reply({ content: "⚠️ 진행 중인 전투가 없어요. `/던전` 으로 입장해 주세요.", flags: 64 }), true);
 
   await interaction.deferUpdate();
   const s = rpg.statsOf(ch);

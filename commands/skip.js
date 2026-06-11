@@ -9,10 +9,10 @@ module.exports = {
   async execute(interaction, client) {
     const player = client.lavalink.getPlayer(interaction.guild.id);
     if (!player || !player.queue.current)
-      return interaction.reply({ content: "⚠️ 재생 중인 곡이 없어요.", ephemeral: true });
+      return interaction.reply({ content: "⚠️ 재생 중인 곡이 없어요.", flags: 64 });
 
     const voiceCheck = checkVoice(interaction, player);
-    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, ephemeral: true });
+    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, flags: 64 });
 
     const skipped = player.queue.current.info.title;
     if (player.queue.tracks.length > 0) {

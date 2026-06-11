@@ -469,10 +469,10 @@ const pendingDuels = new Map(); // key: messageId 대신 `${challengerId}_${targ
 
 async function startDuel(interaction, target, pot) {
   const me = interaction.user;
-  if (target.bot) return interaction.reply({ content: "⚠️ 봇과는 대결할 수 없어요.", ephemeral: true });
-  if (target.id === me.id) return interaction.reply({ content: "⚠️ 자기 자신과는 대결할 수 없어요.", ephemeral: true });
+  if (target.bot) return interaction.reply({ content: "⚠️ 봇과는 대결할 수 없어요.", flags: 64 });
+  if (target.id === me.id) return interaction.reply({ content: "⚠️ 자기 자신과는 대결할 수 없어요.", flags: 64 });
   const u = economy.getUser(me.id, me.username);
-  if (u.balance < pot) return interaction.reply({ content: `⚠️ 판돈이 부족해요. (잔액 ${u.balance} ${COIN})`, ephemeral: true });
+  if (u.balance < pot) return interaction.reply({ content: `⚠️ 판돈이 부족해요. (잔액 ${u.balance} ${COIN})`, flags: 64 });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`duel_acc_${me.id}_${target.id}_${pot}`).setLabel("수락").setEmoji("🎲").setStyle(ButtonStyle.Success),
@@ -490,7 +490,7 @@ async function onDuelButton(interaction) {
   const [, action, challengerId, targetId, potStr] = interaction.customId.split("_");
   const pot = parseInt(potStr, 10);
   if (interaction.user.id !== targetId)
-    return interaction.reply({ content: "⚠️ 대결 당사자만 누를 수 있어요.", ephemeral: true });
+    return interaction.reply({ content: "⚠️ 대결 당사자만 누를 수 있어요.", flags: 64 });
 
   if (action === "dec") {
     return interaction.update({
@@ -505,7 +505,7 @@ async function onDuelButton(interaction) {
   if (a.balance < pot)
     return interaction.update({ content: "", embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle("🎲 대결 무산").setDescription("신청자의 잔액이 부족해졌습니다.")], components: [] });
   if (b.balance < pot)
-    return interaction.reply({ content: `⚠️ 판돈이 부족해요. (잔액 ${b.balance} ${COIN})`, ephemeral: true });
+    return interaction.reply({ content: `⚠️ 판돈이 부족해요. (잔액 ${b.balance} ${COIN})`, flags: 64 });
 
   economy.addBalance(challengerId, -pot);
   economy.addBalance(targetId, -pot);
@@ -621,7 +621,7 @@ async function runCrash(interaction, bet) {
 async function onCrashButton(interaction) {
   const userId = interaction.customId.split("_")[2];
   if (interaction.user.id !== userId)
-    return interaction.reply({ content: "⚠️ 본인 게임만 캐시아웃할 수 있어요.", ephemeral: true });
+    return interaction.reply({ content: "⚠️ 본인 게임만 캐시아웃할 수 있어요.", flags: 64 });
   const state = activeCrash.get(userId);
   if (!state) return interaction.deferUpdate();
   state.cashed = true;
@@ -710,13 +710,13 @@ async function onBjButton(interaction) {
   if (action === "again") {
     const bet = parseInt(parts[2], 10) || MIN_BET;
     const bal = economy.getUser(interaction.user.id).balance;
-    if (bal < bet) return interaction.reply({ content: `⚠️ 코인 부족 (잔액 ${bal})`, ephemeral: true });
+    if (bal < bet) return interaction.reply({ content: `⚠️ 코인 부족 (잔액 ${bal})`, flags: 64 });
     await interaction.deferUpdate();
     return runBlackjack(interaction, bet);
   }
 
   const game = bjGames.get(interaction.user.id);
-  if (!game) return interaction.reply({ content: "진행 중인 블랙잭 게임이 없어요. `/블랙잭` 으로 시작하세요.", ephemeral: true });
+  if (!game) return interaction.reply({ content: "진행 중인 블랙잭 게임이 없어요. `/블랙잭` 으로 시작하세요.", flags: 64 });
 
   if (action === "hit") {
     if (game.deck.length === 0) game.deck.push(...blackjack.start().deck); // 덱 고갈 방지
@@ -796,13 +796,13 @@ async function onHlButton(interaction) {
   if (action === "again") {
     const bet = parseInt(parts[2], 10) || MIN_BET;
     const bal = economy.getUser(interaction.user.id).balance;
-    if (bal < bet) return interaction.reply({ content: `⚠️ 코인 부족 (잔액 ${bal})`, ephemeral: true });
+    if (bal < bet) return interaction.reply({ content: `⚠️ 코인 부족 (잔액 ${bal})`, flags: 64 });
     await interaction.deferUpdate();
     return runHighlow(interaction, bet);
   }
 
   const game = hlGames.get(interaction.user.id);
-  if (!game) return interaction.reply({ content: "진행 중인 하이로우 게임이 없어요. `/하이로우` 로 시작하세요.", ephemeral: true });
+  if (!game) return interaction.reply({ content: "진행 중인 하이로우 게임이 없어요. `/하이로우` 로 시작하세요.", flags: 64 });
 
   if (action === "cash") {
     const win = Math.floor(game.bet * game.mult);
@@ -882,11 +882,11 @@ async function onCommand(interaction) {
     case "송금": {
       const to = interaction.options.getUser("받는사람");
       const amount = interaction.options.getInteger("금액");
-      if (to.bot) return interaction.reply({ content: "⚠️ 봇에게는 송금할 수 없어요.", ephemeral: true });
-      if (to.id === interaction.user.id) return interaction.reply({ content: "⚠️ 자기 자신에게는 송금할 수 없어요.", ephemeral: true });
+      if (to.bot) return interaction.reply({ content: "⚠️ 봇에게는 송금할 수 없어요.", flags: 64 });
+      if (to.id === interaction.user.id) return interaction.reply({ content: "⚠️ 자기 자신에게는 송금할 수 없어요.", flags: 64 });
       const r = economy.transfer(interaction.user.id, to.id, amount, to.username);
       if (!r.ok)
-        return interaction.reply({ content: r.reason === "balance" ? `⚠️ 잔액이 부족해요. (잔액 ${r.balance} ${COIN})` : "⚠️ 1코인 이상 보내야 해요.", ephemeral: true });
+        return interaction.reply({ content: r.reason === "balance" ? `⚠️ 잔액이 부족해요. (잔액 ${r.balance} ${COIN})` : "⚠️ 1코인 이상 보내야 해요.", flags: 64 });
       return interaction.reply({
         embeds: [new EmbedBuilder().setColor(0x2ecc71).setAuthor(authorTag(interaction.user)).setTitle("💸 송금 완료")
           .setDescription(`<@${to.id}> 님에게 **${amount.toLocaleString()}** ${COIN} 을 보냈습니다.\n내 잔액: **${r.fromBalance.toLocaleString()}** ${COIN}`)],
@@ -924,13 +924,13 @@ async function onCommand(interaction) {
     case "출석": {
       const r = economy.claimDaily(userId, name);
       if (!r.ok)
-        return interaction.reply({ content: `⏳ 다음 출석까지 **${fmt(r.remaining)}** 남았어요.`, ephemeral: true });
+        return interaction.reply({ content: `⏳ 다음 출석까지 **${fmt(r.remaining)}** 남았어요.`, flags: 64 });
       return interaction.reply(`✅ 출석 완료! **+${r.amount}** ${COIN} (잔액 ${r.balance} ${COIN})`);
     }
     case "노가다": {
       const r = economy.grindReady(userId);
       if (!r.ok)
-        return interaction.reply({ content: `⏳ 곡괭이 손질 중... **${fmt(r.remaining)}** 뒤에 다시 캘 수 있어요.`, ephemeral: true });
+        return interaction.reply({ content: `⏳ 곡괭이 손질 중... **${fmt(r.remaining)}** 뒤에 다시 캘 수 있어요.`, flags: 64 });
       return interaction.reply({
         embeds: [new EmbedBuilder()
           .setColor(0x8a6444)
@@ -954,9 +954,9 @@ async function onCommand(interaction) {
     case "파산": {
       const r = economy.claimBailout(userId, name);
       if (!r.ok && r.reason === "still_have")
-        return interaction.reply({ content: `아직 코인이 ${r.balance} ${COIN} 남아 있어요.`, ephemeral: true });
+        return interaction.reply({ content: `아직 코인이 ${r.balance} ${COIN} 남아 있어요.`, flags: 64 });
       if (!r.ok && r.reason === "cooldown")
-        return interaction.reply({ content: `⏳ 다음 구제까지 **${fmt(r.remaining)}** 남았어요. 그동안 \`/출석\` 도 이용하세요.`, ephemeral: true });
+        return interaction.reply({ content: `⏳ 다음 구제까지 **${fmt(r.remaining)}** 남았어요. 그동안 \`/출석\` 도 이용하세요.`, flags: 64 });
       return interaction.reply(`🛟 구제 코인 **+${r.amount}** ${COIN} 지급! (잔액 ${r.balance} ${COIN})`);
     }
     case "랭킹": {
@@ -1058,7 +1058,7 @@ function mineButtons(disabled = false) {
 }
 async function onMineButton(interaction) {
   const r = economy.grindReady(interaction.user.id);
-  if (!r.ok) return interaction.reply({ content: `⏳ 곡괭이 손질 중... **${fmt(r.remaining)}** 뒤에 다시 캘 수 있어요.`, ephemeral: true });
+  if (!r.ok) return interaction.reply({ content: `⏳ 곡괭이 손질 중... **${fmt(r.remaining)}** 뒤에 다시 캘 수 있어요.`, flags: 64 });
   await interaction.deferUpdate();
   const ore = rollOre();
   const coins = ore.min + Math.floor(Math.random() * (ore.max - ore.min + 1));
@@ -1107,10 +1107,10 @@ async function runRaceJoin(interaction, horse, bet) {
   const userId = interaction.user.id;
   const u = economy.getUser(userId, interaction.user.username);
   let race = races.get(interaction.channelId);
-  if (race?.started) return interaction.reply({ content: "⚠️ 이미 출발한 경주예요! 다음 경주를 기다려주세요.", ephemeral: true });
-  if (race?.bets.has(userId)) return interaction.reply({ content: "⚠️ 이미 이번 경주에 베팅했어요!", ephemeral: true });
+  if (race?.started) return interaction.reply({ content: "⚠️ 이미 출발한 경주예요! 다음 경주를 기다려주세요.", flags: 64 });
+  if (race?.bets.has(userId)) return interaction.reply({ content: "⚠️ 이미 이번 경주에 베팅했어요!", flags: 64 });
   if (u.balance < bet)
-    return interaction.reply({ content: `⚠️ 코인이 부족해요! (잔액 ${u.balance} ${COIN}) — \`/출석\` \`/노가다\``, ephemeral: true });
+    return interaction.reply({ content: `⚠️ 코인이 부족해요! (잔액 ${u.balance} ${COIN}) — \`/출석\` \`/노가다\``, flags: 64 });
 
   economy.addBalance(userId, -bet);
   economy.feedJackpot(bet);
@@ -1126,7 +1126,7 @@ async function runRaceJoin(interaction, horse, bet) {
   } else {
     race.bets.set(userId, entry);
     race.msg?.edit({ embeds: [raceEmbed(race, "곧 출발,")] }).catch(() => {});
-    await interaction.reply({ content: `✅ ${HORSE_NAMES[horse]} 에 **${bet.toLocaleString()}** ${COIN} 베팅 완료!`, ephemeral: true });
+    await interaction.reply({ content: `✅ ${HORSE_NAMES[horse]} 에 **${bet.toLocaleString()}** ${COIN} 베팅 완료!`, flags: 64 });
   }
 }
 
@@ -1169,7 +1169,7 @@ async function startRace(channelId) {
 }
 
 async function onRaceButton(interaction) {
-  return interaction.reply({ content: "참가 방법: `/경마 말:<1~6> 베팅:<코인>`", ephemeral: true });
+  return interaction.reply({ content: "참가 방법: `/경마 말:<1~6> 베팅:<코인>`", flags: 64 });
 }
 
 // ── 일일 퀘스트 ────────────────────────────────────────────────────
@@ -1199,12 +1199,12 @@ async function onQuestButton(interaction) {
   if (action === "refresh") return interaction.update(questView(interaction.user.id, interaction.user));
   // claim — 누른 사람 본인의 퀘스트를 수령
   const r = economy.claimQuests(interaction.user.id, interaction.user.username);
-  if (!r.ok) return interaction.reply({ content: "아직 받을 보상이 없어요! 퀘스트를 먼저 완료해주세요.", ephemeral: true });
+  if (!r.ok) return interaction.reply({ content: "아직 받을 보상이 없어요! 퀘스트를 먼저 완료해주세요.", flags: 64 });
   await interaction.update(questView(interaction.user.id, interaction.user));
   const lines = r.claimed.map((q) => `• ${q.label} +${q.reward} ${COIN}`).join("\n");
   return interaction.followUp({
     content: `🎁 퀘스트 보상 수령!\n${lines}` + (r.allBonus ? `\n🌟 **전부 달성 보너스 +${r.allBonus} ${COIN}**` : "") + `\n→ 총 **+${r.total.toLocaleString()}** ${COIN} (잔액 ${r.balance.toLocaleString()})`,
-    ephemeral: true,
+    flags: 64,
   });
 }
 
@@ -1234,10 +1234,10 @@ async function onShopButton(interaction) {
   const r = economy.buyItem(interaction.user.id, interaction.user.username, itemId);
   if (!r.ok) {
     const msg = r.reason === "owned" ? "이미 보유 중인 아이템이에요!" : r.reason === "balance" ? `코인이 부족해요! (잔액 ${r.balance} ${COIN})` : "알 수 없는 아이템이에요.";
-    return interaction.reply({ content: `⚠️ ${msg}`, ephemeral: true });
+    return interaction.reply({ content: `⚠️ ${msg}`, flags: 64 });
   }
   await interaction.update(shopView(interaction.user.id, interaction.user)).catch(() => {});
-  return interaction.followUp({ content: `✅ ${r.item.emoji} **${r.item.label}** 구매 완료! (잔액 ${r.balance.toLocaleString()} ${COIN})`, ephemeral: true });
+  return interaction.followUp({ content: `✅ ${r.item.emoji} **${r.item.label}** 구매 완료! (잔액 ${r.balance.toLocaleString()} ${COIN})`, flags: 64 });
 }
 
 // ── 외부 노출 ──────────────────────────────────────────────────────
@@ -1254,7 +1254,7 @@ async function handleButton(interaction) {
   if (OWNED_PREFIX.some((p) => id.startsWith(p))) {
     const owner = panelOwnerId(interaction);
     if (owner && owner !== interaction.user.id) {
-      await interaction.reply({ content: `⚠️ 이 게임 패널은 <@${owner}> 님의 것이에요. 본인 명령(\`/슬롯\` 등)으로 시작해주세요!`, ephemeral: true });
+      await interaction.reply({ content: `⚠️ 이 게임 패널은 <@${owner}> 님의 것이에요. 본인 명령(\`/슬롯\` 등)으로 시작해주세요!`, flags: 64 });
       return true;
     }
   }

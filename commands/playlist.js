@@ -32,7 +32,7 @@ module.exports = {
       const name = interaction.options.getString("이름").slice(0, 30);
       const player = client.lavalink.getPlayer(interaction.guild.id);
       if (!player || (!player.queue.current && player.queue.tracks.length === 0))
-        return interaction.reply({ content: "⚠️ 저장할 곡이 없어요. 먼저 노래를 재생해 주세요.", ephemeral: true });
+        return interaction.reply({ content: "⚠️ 저장할 곡이 없어요. 먼저 노래를 재생해 주세요.", flags: 64 });
       const tracks = [];
       if (player.queue.current) tracks.push({ title: player.queue.current.info.title, uri: player.queue.current.info.uri });
       for (const t of player.queue.tracks) tracks.push({ title: t.info.title, uri: t.info.uri });
@@ -44,14 +44,14 @@ module.exports = {
 
     if (sub === "목록") {
       const names = Object.keys(mine);
-      if (!names.length) return interaction.reply({ content: "📃 저장된 플레이리스트가 없어요. `/플리 저장 [이름]` 으로 만들어 보세요.", ephemeral: true });
+      if (!names.length) return interaction.reply({ content: "📃 저장된 플레이리스트가 없어요. `/플리 저장 [이름]` 으로 만들어 보세요.", flags: 64 });
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865f2).setTitle("📃 내 플레이리스트")
         .setDescription(names.map((n) => `• **${n}** (${mine[n].length}곡)`).join("\n"))] });
     }
 
     if (sub === "삭제") {
       const name = interaction.options.getString("이름");
-      if (!mine[name]) return interaction.reply({ content: `⚠️ **${name}** 플레이리스트가 없어요.`, ephemeral: true });
+      if (!mine[name]) return interaction.reply({ content: `⚠️ **${name}** 플레이리스트가 없어요.`, flags: 64 });
       delete mine[name];
       save(all);
       return interaction.reply({ content: `🗑️ **${name}** 플레이리스트를 삭제했어요.` });
@@ -60,9 +60,9 @@ module.exports = {
     if (sub === "재생") {
       const name = interaction.options.getString("이름");
       const list = mine[name];
-      if (!list || !list.length) return interaction.reply({ content: `⚠️ **${name}** 플레이리스트가 없어요. \`/플리 목록\` 으로 확인해 보세요.`, ephemeral: true });
+      if (!list || !list.length) return interaction.reply({ content: `⚠️ **${name}** 플레이리스트가 없어요. \`/플리 목록\` 으로 확인해 보세요.`, flags: 64 });
       const voiceCheck = checkVoice(interaction);
-      if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, ephemeral: true });
+      if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, flags: 64 });
       await interaction.deferReply();
 
       let player = client.lavalink.getPlayer(interaction.guild.id);

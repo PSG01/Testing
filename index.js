@@ -314,7 +314,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.isRepliable()) {
       if (interaction.replied || interaction.deferred)
         interaction.editReply({ content: "⚠️ 처리 중 오류가 발생했어요." }).catch(() => {});
-      else interaction.reply({ content: "⚠️ 처리 중 오류가 발생했어요.", ephemeral: true }).catch(() => {});
+      else interaction.reply({ content: "⚠️ 처리 중 오류가 발생했어요.", flags: 64 }).catch(() => {});
     }
   }
 });
@@ -330,12 +330,12 @@ async function onCommand(interaction) {
   if (!cfg && MUSIC_CMDS.has(interaction.commandName))
     return interaction.reply({
       content: "⚠️ `/셋업` 으로 먼저 채널을 지정해주세요.",
-      ephemeral: true,
+      flags: 64,
     });
   if (cfg && MUSIC_CMDS.has(interaction.commandName) && interaction.channelId !== cfg.channelId)
     return interaction.reply({
       content: `⚠️ 음악 명령은 <#${cfg.channelId}> 에서만 사용할 수 있어요.`,
-      ephemeral: true,
+      flags: 64,
     });
   const command = client.commands.get(interaction.commandName);
   if (command) await command.execute(interaction, client);
@@ -361,20 +361,20 @@ async function onMusicButton(interaction) {
     if (!menu)
       return interaction.reply({
         content: "⚠️ 등록된 차트가 없어요. `charts.json` 에 차트를 추가하세요.",
-        ephemeral: true,
+        flags: 64,
       });
-    return interaction.reply({ ...menu, ephemeral: true });
+    return interaction.reply({ ...menu, flags: 64 });
   }
 
   const player = client.lavalink.getPlayer(interaction.guildId);
   if (!player || !player.queue.current)
-    return interaction.reply({ content: "⚠️ 재생 중인 곡이 없어요.", ephemeral: true });
+    return interaction.reply({ content: "⚠️ 재생 중인 곡이 없어요.", flags: 64 });
 
   const mc = interaction.member?.voice?.channel;
   if (!mc || mc.id !== player.voiceChannelId)
     return interaction.reply({
       content: "⚠️ 봇과 같은 음성 채널에 있어야 사용할 수 있어요.",
-      ephemeral: true,
+      flags: 64,
     });
 
   switch (interaction.customId) {
@@ -396,7 +396,7 @@ async function onMusicButton(interaction) {
     }
     case "music_shuffle":
       player.queue.shuffle();
-      return interaction.reply({ content: "🔀 재생 목록을 섞었어요.", ephemeral: true });
+      return interaction.reply({ content: "🔀 재생 목록을 섞었어요.", flags: 64 });
     case "music_voldown":
       await player.setVolume(Math.max(0, player.volume - 10));
       return interaction.update(buildView(player));
@@ -404,7 +404,7 @@ async function onMusicButton(interaction) {
       await player.setVolume(Math.min(150, player.volume + 10));
       return interaction.update(buildView(player));
     case "music_queue":
-      return interaction.reply({ ...buildQueueView(player, 0), ephemeral: true });
+      return interaction.reply({ ...buildQueueView(player, 0), flags: 64 });
     default:
       return interaction.deferUpdate();
   }
@@ -427,7 +427,7 @@ async function onQueueButton(interaction) {
     if (!player || !mc || mc.id !== player.voiceChannelId)
       return interaction.reply({
         content: "⚠️ 봇과 같은 음성 채널에서만 삭제할 수 있어요.",
-        ephemeral: true,
+        flags: 64,
       });
     const modal = new ModalBuilder().setCustomId(`q_delmodal_${page}`).setTitle("대기열에서 삭제");
     modal.addComponents(
@@ -446,7 +446,7 @@ async function onQueueButton(interaction) {
 async function onDeleteModal(interaction) {
   const page = parseInt(interaction.customId.split("_")[2], 10) || 0;
   const player = client.lavalink.getPlayer(interaction.guildId);
-  if (!player) return interaction.reply({ content: "재생이 종료됐어요.", ephemeral: true });
+  if (!player) return interaction.reply({ content: "재생이 종료됐어요.", flags: 64 });
 
   const raw = interaction.fields.getTextInputValue("nums");
   const nums = [
@@ -470,8 +470,8 @@ async function onDeleteModal(interaction) {
 async function onSearchModal(interaction) {
   const query = interaction.fields.getTextInputValue("query");
   const voice = interaction.member?.voice?.channel;
-  if (!voice) return interaction.reply({ content: "⚠️ 먼저 음성 채널에 들어가 주세요.", ephemeral: true });
-  await interaction.deferReply({ ephemeral: true });
+  if (!voice) return interaction.reply({ content: "⚠️ 먼저 음성 채널에 들어가 주세요.", flags: 64 });
+  await interaction.deferReply({ flags: 64 });
   const r = await playQuery({
     guild: interaction.guild,
     voiceChannel: voice,

@@ -9,7 +9,7 @@ module.exports = {
   async execute(interaction, client) {
     const player = client.lavalink.getPlayer(interaction.guild.id);
     if (!player || !player.queue.current)
-      return interaction.reply({ content: "⚠️ 재생 중인 곡이 없어요.", ephemeral: true });
+      return interaction.reply({ content: "⚠️ 재생 중인 곡이 없어요.", flags: 64 });
 
     const current = player.queue.current;
     const upcoming = player.queue.tracks.slice(0, 10);

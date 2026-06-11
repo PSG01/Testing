@@ -14,7 +14,7 @@ module.exports = {
 
   async execute(interaction, client) {
     const voiceCheck = checkVoice(interaction);
-    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, ephemeral: true });
+    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, flags: 64 });
 
     const query = interaction.options.getString("검색어");
     await interaction.deferReply();

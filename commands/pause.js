@@ -9,13 +9,13 @@ module.exports = {
   async execute(interaction, client) {
     const player = client.lavalink.getPlayer(interaction.guild.id);
     if (!player || !player.queue.current)
-      return interaction.reply({ content: "⚠️ 재생 중인 곡이 없어요.", ephemeral: true });
+      return interaction.reply({ content: "⚠️ 재생 중인 곡이 없어요.", flags: 64 });
 
     const voiceCheck = checkVoice(interaction, player);
-    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, ephemeral: true });
+    if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, flags: 64 });
 
     if (player.paused)
-      return interaction.reply({ content: "⏸️ 이미 일시정지 상태예요.", ephemeral: true });
+      return interaction.reply({ content: "⏸️ 이미 일시정지 상태예요.", flags: 64 });
 
     await player.pause();
     return interaction.reply("⏸️ 일시정지했어요. `/다시재생` 으로 이어서 들을 수 있어요.");
