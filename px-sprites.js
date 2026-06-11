@@ -551,8 +551,7 @@ const lighten = (hex, f = 0.45) => {
 // 직업 스프라이트 (pose: 'idle'|'atk')
 function hero(classKey, x, y, px, pose = "idle", { flip = false, white = false } = {}) {
   const gear = GEAR[classKey] || GEAR.warrior;
-  const pal = { ...BASE_PAL, ...gear.pal };
-  pal.c = shadeCool(pal.C); pal.d = shadeCool(pal.D); pal.h = shadeCool(pal.H); pal.b = shadeCool(pal.B);
+  const pal = { ...BASE_PAL, ...gear.pal };  pal.c = shadeCool(pal.C); pal.d = shadeCool(pal.D); pal.h = shadeCool(pal.H); pal.b = shadeCool(pal.B);
   pal.l = tintWarm(pal.C, 0.32); pal.i = tintWarm(pal.H, 0.32);
   const body = pose === "atk" ? HUMAN_ATK : HUMAN_IDLE;
   const weapon = pose === "atk" ? gear.atk : gear.idle;

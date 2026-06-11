@@ -1,5 +1,6 @@
 // ── 등반 전투 렌더러 (도트 + 의도/에너지/블록/손패) ───────────────
 const px = require("./px-sprites");
+const sprites = require("./sprite-assets");
 const { CARDS, getCard } = require("./sts");
 const { svgToPng, framesToGif, easeOutCubic } = require("./utils");
 
@@ -183,8 +184,8 @@ function scene(run, { pdx = 0, mdx = 0, pose = "idle", pWhite = false, mWhite = 
   s += badges(mp.x - 40, 70, [["방어", e.block, "#7ab8ff"], ["힘", e.str, "#ffd23a"], ["독", e.poison, "#8aff8a"], ["취약", e.vuln, "#ffb070"]]);
   s += `<ellipse cx="${PXX + 40 + pdx}" cy="218" rx="38" ry="6" fill="#000" opacity="0.35"/>`;
   s += `<ellipse cx="${mp.x + mp.w / 2 + mdx}" cy="218" rx="${mp.w / 2}" ry="6" fill="#000" opacity="0.35"/>`;
-  s += px.hero(run.charKey || "warrior", PXX + pdx, PXY, HPX, pose, { white: pWhite });
-  s += px.mob(e.px, mp.x + mdx, mp.y, PXS, { white: mWhite });
+  s += sprites.hero(run.charKey || "warrior", PXX + pdx, PXY, HPX, pose, { white: pWhite });
+  s += sprites.mob(e.px, mp.x + mdx, mp.y, PXS, { white: mWhite });
   s += intentIcon(mp.x + mp.w / 2 + mdx, mp.y - 8, b.intent, e.str);
   s += energyOrb(40, 170, b.energy, b.maxEnergy);
   s += `<text x="40" y="206" font-size="11" fill="#9aa" text-anchor="middle" font-family="DejaVu Sans">덱${b.draw.length}·버림${b.discard.length}</text>`;
@@ -331,7 +332,7 @@ async function enemyTurnGif(runBefore, events, runAfter, resultMsg, resultColor)
         const t = f / 4;
         const txt = ev.n > 0 ? `${ev.n}` : `막음!`;
         const kb = ev.n > 0 && f < 2 ? -(8 + Math.min(10, ev.n)) : 0; // 넉백
-        add(scene(run, { mdx: -120, pdx: kb, pWhite: ev.n > 0 && f < 2, shake: ev.n > 0 ? (ev.n >= 14 ? 10 : 6) : 0, fx: slashFx(PXX + 40, PXY + 45, t) + dmgNum(PXX + 40, PXY + 35, t, txt, ev.n > 0 ? "#ff8a98" : "#7ab8ff"), msg: ev.blocked ? `방어로 ${ev.blocked} 막음` : "적의 공격!", hideHand: true }), f === 0 ? 150 : 80);
+        add(scene(run, { mdx: -120, pdx: kb, pose: ev.n > 0 ? "hit" : "idle", pWhite: ev.n > 0 && f === 0, shake: ev.n > 0 ? (ev.n >= 14 ? 10 : 6) : 0, fx: slashFx(PXX + 40, PXY + 45, t) + dmgNum(PXX + 40, PXY + 35, t, txt, ev.n > 0 ? "#ff8a98" : "#7ab8ff"), msg: ev.blocked ? `방어로 ${ev.blocked} 막음` : "적의 공격!", hideHand: true }), f === 0 ? 150 : 80);
       }
       for (let f = 1; f <= 2; f++) add(scene(run, { mdx: -(1 - f / 2) * 120, msg: "...", hideHand: true }), 60);
     } else if (ev.t === "thornsHit") {

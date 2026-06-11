@@ -33,13 +33,14 @@ function load(category, name, pose) {
   return out;
 }
 
-// SVG <image> 조각 생성 — 박스(boxW x boxH) 안에 바닥 정렬로 배치
-function imageTag(asset, x, y, boxW, boxH, { flip = false } = {}) {
-  const scale = Math.min(boxW / asset.w, boxH / asset.h);
-  const w = asset.w * scale, h = asset.h * scale;
-  const ix = x + (boxW - w) / 2, iy = y + (boxH - h); // 바닥 정렬
+// SVG <image> 조각 생성 — 박스 높이에 맞춰 스케일, 바닥 중앙 정렬
+function imageTag(asset, x, y, boxW, boxH, { flip = false, white = false } = {}) {
+  const scale = boxH / asset.h;
+  const w = asset.w * scale, h = boxH;
+  const ix = x + (boxW - w) / 2, iy = y + (boxH - h);
   const tf = flip ? ` transform="translate(${(ix * 2 + w).toFixed(1)},0) scale(-1,1)"` : "";
-  return `<image href="${asset.dataUri}" x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" image-rendering="optimizeSpeed" style="image-rendering:pixelated"${tf}/>`;
+  const op = white ? ` opacity="0.35"` : ""; // 피격 점멸은 반투명 깜빡임으로 표현
+  return `<image href="${asset.dataUri}" x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" image-rendering="optimizeSpeed" style="image-rendering:pixelated"${op}${tf}/>`;
 }
 
 // 영웅: 에셋 있으면 이미지, 없으면 코드 도트 (32x29 그리드, px 단위)
