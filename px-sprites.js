@@ -23,13 +23,13 @@ const HEAD_ROWS = [
   "......KHiHHHHHHHHHHHHhK",
   "......KHHHHHHHHHHHHHHhK",
   "......KHHhSSSSSSSSShHhK",
-  "......KHhSSSSSSSSSSSShK",
-  "......KHSEEEEESSEEEEEShK",
-  "......KHSEwwIESSEwwIEShK",
-  "......KHSEwwIESSEwwIEShK",
-  "......KHSEIIIESSEIIIEShK",
-  "......KHSEvvvESSEvvvEShK",
-  "......KHpSSSSSmmSSSSSphK",
+  "......KHhStSSSSSSSStSShK",
+  "......KHhSSSSSSSSSSSSShK",
+  "......KHSSEEwSSSSEEwSShK",
+  "......KHSSEEESSSSEEESShK",
+  "......KHSSEEESSSSEEESShK",
+  "......KHSSvvvSSSSvvvSShK",
+  "......KHpSSSSSmmSSSSpShK",
   "........KtSSSSSSSSSStK",
   ".........KKttttttttKK",
   "............KttttK",
@@ -42,13 +42,13 @@ const HUMAN_IDLE = norm([
   "........KCKlCCCCCCCKcK",
   "........KCKlCCCCCCCKcK",
   "........KCKCCCCCCCcKcK",
-  "........KCKAAAAAAAcKcK",
-  "........KCKAwAAAAAcKcK",
+  "........KAKAAAAAAAcKAK",
+  "........KAKAwAAAAAcKAK",
   "........KSKCCCCCCCcKSK",
   ".......KSSKCCCCCCCcKSSK",
   ".......KSSKCCCCCCCcKSSK",
-  ".......KKKKCCCCCCCcKKKK",
-  "..........KCCCCCCcK",
+  ".......KKKKcCCCCCCcKKKK",
+  "..........KcCCCCCccK",
   "..........KDDDKKDDDK",
   "..........KDDdKKDDdK",
   "..........KDDdKKDDdK",
@@ -69,13 +69,13 @@ const HUMAN_ATK = norm([
   "........KCKlCCCCCCCCCCKSSK",
   "........KCKlCCCCCCCKKKKSSK",
   "........KCKCCCCCCCcKcKKKK",
-  "........KCKAAAAAAAcKcK",
-  "........KCKAwAAAAAcKcK",
+  "........KAKAAAAAAAcKcK",
+  "........KAKAwAAAAAcKcK",
   "........KSKCCCCCCCcKSK",
   ".......KSSKCCCCCCCcKSSK",
   ".......KSSKCCCCCCCcKSSK",
-  ".......KKKKCCCCCCCcKKKK",
-  "..........KCCCCCCcK",
+  ".......KKKKcCCCCCCcKKKK",
+  "..........KcCCCCCccK",
   ".........KDDDK..KDDDK",
   ".........KDDdK..KDDdK",
   "........KDDdK....KDDdK",
@@ -113,6 +113,13 @@ const GEAR = {
       "",
       "......KHhK........KhhK",
       ".......KKK........KKK",
+      "",
+      "",
+      ".......KWWK........KWWK",
+      ".......KWMK........KWMK",
+      "........KK..........KK",
+      "..............AA",
+      "..............AA",
     ]),
     idle: pad([
       "", "", "", "", "", "", "", "",
@@ -176,6 +183,14 @@ const GEAR = {
       "",
       ".......qq.........qq",
       "........qq.......qq",
+      "",
+      "",
+      "..........WWKKKKWW",
+      ".........KWWWKKWWWK",
+      "........KSK........KSK",
+      "........KSK........KSK",
+      "........KSK........KSK",
+      "........KSK........KSK",
     ]),
     idle: pad([
       "", "", "", "", "", "",
@@ -236,6 +251,18 @@ const GEAR = {
       "..KKHHHHHHHHHHHHHHHHKK",
       ".KHHHHHHHHHHHHHHHHHHHhK",
       "..KKhhhhhhhhhhhhhhhhKK",
+      "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+      ".........KHHHHHHHHHK",
+      ".........KHHHHHHHHhK",
+      ".........KHHHHHHHHhK",
+      "........KHHHHHHHHHHhK",
+      "........KHHHHHHHHHHhK",
+      "........KHHHHHHHHHHhK",
+      ".......KHHHHHHHHHHHHhK",
+      ".......KHHHHHHHHHHHHhK",
+      ".......KHAHAHAHAHAHAhK",
+      ".......KHHHHHHHHHHHHhK",
+      ".......KKKKKKKKKKKKKKK",
     ]),
     idle: pad([
       "", "", "",
@@ -302,6 +329,14 @@ const GEAR = {
       ".......Khccccccccccc",
       "........KhccccccccK",
       ".........KKccccKK",
+      "",
+      ".........KHHHHHHHHK",
+      "..........KhHHHHHhK",
+      "...........KMM",
+      "............KMM",
+      ".............KMM",
+      "..............KMM",
+      "...............KMM",
     ]),
     idle: pad([
       "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -340,6 +375,14 @@ const GEAR = {
       "",
       "......Khh..........hhK",
       ".......Khh........hhK",
+      "",
+      "",
+      "",
+      "...............GG",
+      "..............GG",
+      ".............GG",
+      "............GG",
+      "...........GG",
     ]),
     idle: pad([
       "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -392,6 +435,18 @@ const GEAR = {
       "",
       "......Khh..........hhK",
       ".......Khh........hhK",
+      "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+      ".........KHHHHHHHHHK",
+      ".........KHHHHHHHHhK",
+      ".........KHHHHHHHHhK",
+      "........KHHHHHHHHHHhK",
+      "........KHHHHHHHHHHhK",
+      "........KHHHHHHHHHHhK",
+      ".......KHHHHHHHHHHHHhK",
+      ".......KHHHHHHHHHHHHhK",
+      ".......KAAAAAAAAAAAAAK",
+      ".......KHHHHHHHHHHHHhK",
+      ".......KKKKKKKKKKKKKKK",
     ]),
     idle: pad([
       "",
@@ -444,8 +499,8 @@ const GEAR = {
   },
 };
 const BASE_PAL = {
-  K: "#33243f", S: "#ffd9b0", t: "#e8b488",
-  E: "#3a2030", I: "#c87a2e", v: "#f0b860", w: "#ffffff",
+  K: "#2b1f33", S: "#ffd9b0", t: "#e0a884",
+  E: "#2c2030", I: "#c87a2e", v: "#f0b860", w: "#ffffff",
   p: "#ffaa9a", m: "#c06a52",
   W: "#e6ecf8", M: "#8a94ad", G: "#8a6a4a",
 };
@@ -644,6 +699,16 @@ const shade = (hex, f) => {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 };
 const darken = (hex, f = 0.72) => shade(hex, f);
+// 두 색 혼합 (t: 0~1, b 비율)
+const mix = (a, b, t) => {
+  const na = parseInt(a.slice(1), 16), nb = parseInt(b.slice(1), 16);
+  const ch = (sa, sb) => clamp8(Math.round(sa + (sb - sa) * t));
+  const r = ch((na >> 16) & 255, (nb >> 16) & 255), g = ch((na >> 8) & 255, (nb >> 8) & 255), bl = ch(na & 255, nb & 255);
+  return `#${((r << 16) | (g << 8) | bl).toString(16).padStart(6, "0")}`;
+};
+// 그림자는 보라 쪽으로, 하이라이트는 따뜻한 쪽으로 색조 이동 (hue shifting)
+const shadeCool = (hex) => mix(shade(hex, 0.74), "#3a2c5a", 0.22);
+const tintWarm = (hex, f = 0.4) => mix(mix(hex, "#ffffff", f), "#fff0d0", 0.25);
 const lighten = (hex, f = 0.45) => {
   const n = parseInt(hex.slice(1), 16);
   const r = clamp8(Math.floor(((n >> 16) & 255) + (255 - ((n >> 16) & 255)) * f));
@@ -656,8 +721,8 @@ const lighten = (hex, f = 0.45) => {
 function hero(classKey, x, y, px, pose = "idle", { flip = false, white = false } = {}) {
   const gear = GEAR[classKey] || GEAR.warrior;
   const pal = { ...BASE_PAL, ...gear.pal };
-  pal.c = darken(pal.C); pal.d = darken(pal.D); pal.h = darken(pal.H); pal.b = darken(pal.B);
-  pal.l = lighten(pal.C, 0.35); pal.i = lighten(pal.H, 0.35);
+  pal.c = shadeCool(pal.C); pal.d = shadeCool(pal.D); pal.h = shadeCool(pal.H); pal.b = shadeCool(pal.B);
+  pal.l = tintWarm(pal.C, 0.32); pal.i = tintWarm(pal.H, 0.32);
   const body = pose === "atk" ? HUMAN_ATK : HUMAN_IDLE;
   const weapon = pose === "atk" ? gear.atk : gear.idle;
   // EPX 2배 정밀화 후 절반 픽셀로 렌더 → 화면 크기 동일, 해상도 2배
