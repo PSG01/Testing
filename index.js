@@ -347,6 +347,11 @@ client.on("error", (err) => console.error("⚠️ 클라이언트 오류(무시�
 process.on("unhandledRejection", (err) => console.error("⚠️ 미처리 Promise 오류(무시하고 계속):", err?.message || err));
 process.on("uncaughtException", (err) => console.error("⚠️ 미처리 예외(무시하고 계속):", err?.message || err));
 
+// 음악 명령 응답 자동 삭제 시간(ms) — 음악 채널엔 플레이어 패널만 남게 유지
+// 0 = 해당 명령이 스스로 삭제를 관리 (예: 음악랭킹의 카운트다운)
+const MUSIC_REPLY_TTL = { 음악랭킹: 0, 재생정보: 20_000, 재생목록: 20_000, 플리: 15_000 };
+const MUSIC_REPLY_DEFAULT_TTL = 7_000;
+
 async function onCommand(interaction) {
   const cfg = getConfig(interaction.guildId);
   // 음악 채널 미설정 시 음악 기능 차단
@@ -361,7 +366,17 @@ async function onCommand(interaction) {
       flags: 64,
     });
   const command = client.commands.get(interaction.commandName);
-  if (command) await command.execute(interaction, client);
+  if (!command) return;
+  await command.execute(interaction, client);
+
+  // 음악 명령의 공개 응답은 잠시 보여주고 자동 삭제 (본인 전용 ephemeral 응답은 삭제 불가/불필요라 자연 무시됨)
+  if (MUSIC_CMDS.has(interaction.commandName)) {
+    const ttl = MUSIC_REPLY_TTL[interaction.commandName] ?? MUSIC_REPLY_DEFAULT_TTL;
+    if (ttl > 0) {
+      const msg = await interaction.fetchReply().catch(() => null);
+      if (msg) setTimeout(() => msg.delete().catch(() => {}), ttl);
+    }
+  }
 }
 
 async function onMusicButton(interaction) {
