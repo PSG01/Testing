@@ -27,7 +27,6 @@ function persist() {
 const builders = [
   new SlashCommandBuilder().setName("등반").setDescription("덱을 키우며 10층 탑을 오르는 카드 전투! (슬레이 더 스파이어풍) 🗼"),
   new SlashCommandBuilder().setName("내덱").setDescription("진행 중인 등반의 덱을 봅니다 🃏"),
-  new SlashCommandBuilder().setName("노가다").setDescription("30분마다 일해서 코인을 법니다 ⛏️"),
 ];
 const commandsJSON = builders.map((b) => b.toJSON());
 const commandNames = new Set(builders.map((b) => b.name));
@@ -116,14 +115,6 @@ async function handleCommand(interaction) {
       const relics = (run.relics || []).map((k) => `${sts.RELICS[k].emoji} **${sts.RELICS[k].name}** — ${sts.RELICS[k].desc}`).join("\n") || "없음";
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5a4a8a).setTitle(`🃏 내 덱 (${run.deck.length}장)`)
         .setDescription(list).addFields({ name: "🏺 유물", value: relics })], ephemeral: true });
-    }
-    case "노가다": {
-      const r = economy.grindWork(userId, interaction.user.username);
-      if (!r.ok) return interaction.reply({ content: `⏱️ 아직 쉬는 중이에요. ${Math.ceil(r.remaining / 60000)}분 뒤에 다시 일할 수 있어요.`, ephemeral: true });
-      return interaction.reply({
-        embeds: [new EmbedBuilder().setColor(0x8a6a4a).setAuthor(authorTag(interaction.user)).setTitle("⛏️ 노가다 완료!")
-          .setDescription(`열심히 일해서 **+${r.coins}** ${COIN} 을 벌었어요.\n잔액: **${r.balance.toLocaleString()}** ${COIN} · 다음 일까지 30분!`)],
-      });
     }
   }
 }
