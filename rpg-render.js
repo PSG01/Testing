@@ -3,8 +3,9 @@ const px = require("./px-sprites");
 const { svgToPng, framesToGif, easeOutCubic } = require("./utils");
 
 const W = 480, H = 320;
-const PXS = 4; // 픽셀 크기 (20x26 스프라이트 → 80x104)
-const PXX = 70, PXY = 116;   // 플레이어 스프라이트 좌상단 (발이 226 그림자선에 닿게)
+const PXS = 4; // 몬스터 픽셀 크기
+const HPX = 2.5; // 영웅 픽셀 크기 (32x40 스프라이트 → 80x100)
+const PXX = 70, PXY = 126;   // 플레이어 스프라이트 좌상단 (발이 226 그림자선에 닿게)
 
 function mobPos(key) {
   const sz = px.mobSize(key, PXS);
@@ -79,7 +80,7 @@ function scene(state, { pdx = 0, mdx = 0, pose = "idle", pWhite = false, mWhite 
   // 그림자
   b += `<ellipse cx="${PXX + 40 + pdx}" cy="226" rx="38" ry="6" fill="#000" opacity="0.35"/>`;
   b += `<ellipse cx="${mp.x + mp.w / 2 + mdx}" cy="226" rx="${mp.w / 2}" ry="6" fill="#000" opacity="0.35"/>`;
-  b += px.hero(state.classKey, PXX + pdx, PXY, PXS, pose, { white: pWhite });
+  b += px.hero(state.classKey, PXX + pdx, PXY, HPX, pose, { white: pWhite });
   b += px.mob(state.mob.key, mp.x + mdx, mp.y, PXS, { white: mWhite });
   b += fx;
   return shell(b, state.floor, msg, msgColor, shake);

@@ -4,8 +4,9 @@ const { CARDS, getCard } = require("./sts");
 const { svgToPng, framesToGif, easeOutCubic } = require("./utils");
 
 const W = 520, H = 400;
-const PXS = 4; // 20x26 스프라이트 → 80x104
-const PXX = 78, PXY = 104; // 발이 218 그림자선에 닿게
+const PXS = 4; // 몬스터 픽셀 크기
+const HPX = 2.5; // 영웅 픽셀 크기 (32x40 스프라이트 → 80x100)
+const PXX = 78, PXY = 118; // 발이 218 그림자선에 닿게
 
 function mobPos(key) {
   const sz = px.mobSize(key, PXS);
@@ -182,7 +183,7 @@ function scene(run, { pdx = 0, mdx = 0, pose = "idle", pWhite = false, mWhite = 
   s += badges(mp.x - 40, 70, [["방어", e.block, "#7ab8ff"], ["힘", e.str, "#ffd23a"], ["독", e.poison, "#8aff8a"], ["취약", e.vuln, "#ffb070"]]);
   s += `<ellipse cx="${PXX + 40 + pdx}" cy="218" rx="38" ry="6" fill="#000" opacity="0.35"/>`;
   s += `<ellipse cx="${mp.x + mp.w / 2 + mdx}" cy="218" rx="${mp.w / 2}" ry="6" fill="#000" opacity="0.35"/>`;
-  s += px.hero(run.charKey || "warrior", PXX + pdx, PXY, PXS, pose, { white: pWhite });
+  s += px.hero(run.charKey || "warrior", PXX + pdx, PXY, HPX, pose, { white: pWhite });
   s += px.mob(e.px, mp.x + mdx, mp.y, PXS, { white: mWhite });
   s += intentIcon(mp.x + mp.w / 2 + mdx, mp.y - 8, b.intent, e.str);
   s += energyOrb(40, 170, b.energy, b.maxEnergy);
