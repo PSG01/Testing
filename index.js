@@ -24,12 +24,14 @@ const {
   buildChartMenu,
 } = require("./music-channel");
 const { getAllCharts, fetchAppleChart } = require("./charts-source");
+const autoplay = require("./autoplay");
+const musicStats = require("./music-stats");
 const casino = require("./casino");
 const rpg = require("./sts-commands");
 
 const MUSIC_CMDS = new Set([
   "플리",
-  "재생", "스킵", "일시정지", "다시재생", "정지", "재생목록", "재생정보", "볼륨", "반복", "이동",
+  "재생", "스킵", "일시정지", "다시재생", "정지", "재생목록", "재생정보", "볼륨", "반복", "이동", "필터", "자동재생", "음악랭킹",
 ]);
 
 // ── 클라이언트 ─────────────────────────────────────────────────────
@@ -177,6 +179,12 @@ client.lavalink.nodeManager
 const nowPlayingMessages = new Map();
 
 client.lavalink.on("trackStart", async (player) => {
+  const cur = player.queue?.current;
+  if (cur) {
+    autoplay.markPlayed(player.guildId, cur.info?.identifier);
+    lastTracks.set(player.guildId, cur);
+    musicStats.recordPlay(player.guildId, cur, cur.requester);
+  }
   if (getConfig(player.guildId)) {
     const guild = client.guilds.cache.get(player.guildId);
     if (guild) await ensurePanelBottom(guild); // 곡 시작 시 패널을 맨 아래로 + 즉시 갱신
@@ -190,7 +198,36 @@ client.lavalink.on("trackStart", async (player) => {
     if (msg) nowPlayingMessages.set(player.guildId, msg);
   }
 });
+// 자동재생: 마지막 곡 기반으로 비슷한 곡을 찾아 이어 재생
+const lastTracks = new Map();
+async function tryAutoplay(player) {
+  const last = lastTracks.get(player.guildId);
+  if (!last) return false;
+  try {
+    const ident = last.info?.identifier;
+    let tracks = [];
+    if (ident && (last.info.sourceName === "youtube" || !last.info.sourceName)) {
+      // 유튜브 믹스(RD) 재생목록 = "이 곡과 비슷한 곡" 라디오
+      const res = await player.search({ query: `https://www.youtube.com/watch?v=${ident}&list=RD${ident}` }, last.requester).catch(() => null);
+      tracks = res?.tracks || [];
+    }
+    if (!tracks.length) {
+      const res = await player.search({ query: `${last.info.author || ""} ${last.info.title}`.slice(0, 80) }, last.requester).catch(() => null);
+      tracks = res?.tracks || [];
+    }
+    const pick = tracks.find((t) => t.info.identifier !== ident && !autoplay.wasPlayed(player.guildId, t.info.identifier));
+    if (!pick) return false;
+    await player.queue.add(pick);
+    await player.play();
+    return true;
+  } catch (e) {
+    console.error("자동재생 실패:", e?.message);
+    return false;
+  }
+}
+
 client.lavalink.on("queueEnd", async (player) => {
+  if (autoplay.isOn(player.guildId) && (await tryAutoplay(player))) return; // 라디오 계속
   if (getConfig(player.guildId)) await refreshPanel(player.guildId);
   else {
     const old = nowPlayingMessages.get(player.guildId);
