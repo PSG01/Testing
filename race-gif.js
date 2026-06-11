@@ -7,18 +7,33 @@ const START_X = 26, FINISH_X = W - 56;
 const COLORS = ["#e74c3c", "#e67e22", "#f1c40f", "#2ecc71", "#3498db", "#9b59b6"];
 
 function horse(x, y, color, num, phase) {
-  // 옆모습 말: 몸통 + 머리 + 다리(2프레임 교차) + 꼬리 + 기수 번호
-  const legA = phase % 2 === 0;
-  const leg = (lx, fwd) => `<line x1="${x + lx}" y1="${y + 10}" x2="${x + lx + (fwd ? 7 : -7)}" y2="${y + 22}" stroke="#5a3f28" stroke-width="4" stroke-linecap="round"/>`;
+  // 옆모습 질주하는 말 (오른쪽 진행): 몸통/목/머리/귀/갈기/꼬리 + 4다리 갤럽 2포즈
+  const K = "#2a1c12"; // 외곽선
+  const stretch = phase % 2 === 0; // 다리 뻗기 ↔ 모으기
+  const bob = stretch ? 0 : 2; // 몸통 들썩임
+  const by = y + bob;
+  // 다리: 허벅지→무릎→발굽 꺾인 폴리라인
+  const leg = (sx, sy, kx, ky, hx, hy) =>
+    `<polyline points="${x + sx},${by + sy} ${x + kx},${by + ky} ${x + hx},${by + hy}" fill="none" stroke="${color}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<rect x="${x + hx - 2.5}" y="${by + hy - 1}" width="6" height="4" rx="1.5" fill="${K}"/>`;
+  const legs = stretch
+    ? leg(-13, 6, -19, 13, -25, 17) + leg(-8, 7, -11, 14, -15, 19) + // 뒷다리 뒤로 뻗음
+      leg(9, 6, 14, 12, 20, 15) + leg(13, 5, 19, 10, 24, 12)          // 앞다리 앞으로 뻗음
+    : leg(-13, 6, -10, 13, -13, 19) + leg(-8, 7, -5, 14, -8, 19) +    // 모음
+      leg(9, 6, 11, 13, 8, 18) + leg(13, 5, 15, 12, 12, 17);
   return `<g>
-    <path d="M ${x - 22} ${y + 2} Q ${x - 30} ${y - 8} ${x - 24} ${y - 12} Q ${x - 18} ${y - 4} ${x - 20} ${y + 4} Z" fill="${color}" opacity="0.8"/>
-    <ellipse cx="${x}" cy="${y + 2}" rx="22" ry="12" fill="${color}" stroke="#3a2a1a" stroke-width="2.5"/>
-    ${leg(-14, legA)}${leg(-6, !legA)}${leg(6, legA)}${leg(14, !legA)}
-    <path d="M ${x + 16} ${y - 4} Q ${x + 30} ${y - 14} ${x + 34} ${y - 4} L ${x + 30} ${y + 2} Q ${x + 24} ${y + 4} ${x + 18} ${y + 2} Z" fill="${color}" stroke="#3a2a1a" stroke-width="2.5"/>
-    <circle cx="${x + 31}" cy="${y - 6}" r="2" fill="#1d1d28"/>
-    <path d="M ${x + 18} ${y - 8} L ${x + 26} ${y - 12} L ${x + 28} ${y - 6}" fill="#3a2a1a"/>
-    <circle cx="${x - 2}" cy="${y - 12}" r="9" fill="#fff" stroke="#3a2a1a" stroke-width="2.5"/>
-    <text x="${x - 2}" y="${y - 7}" font-size="13" font-weight="bold" fill="#1d1d28" text-anchor="middle" font-family="DejaVu Sans">${num}</text>
+    <path d="M ${x - 16} ${by - 4} Q ${x - 26} ${by - 9} ${x - 29} ${by - 1} Q ${x - 25} ${by + 4} ${x - 17} ${by + 3} Z" fill="${K}"/>
+    ${legs}
+    <ellipse cx="${x}" cy="${by}" rx="18" ry="9" fill="${color}" stroke="${K}" stroke-width="2.5"/>
+    <path d="M ${x + 10} ${by - 4} L ${x + 21} ${by - 16} L ${x + 27} ${by - 13} L ${x + 18} ${by + 2} Z" fill="${color}" stroke="${K}" stroke-width="2.5"/>
+    <path d="M ${x + 20} ${by - 17} Q ${x + 24} ${by - 21} ${x + 29} ${by - 19} L ${x + 34} ${by - 15} Q ${x + 35} ${by - 11} ${x + 31} ${by - 10} L ${x + 24} ${by - 11} Z" fill="${color}" stroke="${K}" stroke-width="2.5"/>
+    <rect x="${x + 31}" y="${by - 15}" width="5" height="4.5" rx="2" fill="${K}" opacity="0.85"/>
+    <path d="M ${x + 21} ${by - 20} L ${x + 20} ${by - 24} L ${x + 24} ${by - 21} Z" fill="${color}" stroke="${K}" stroke-width="1.8"/>
+    <path d="M ${x + 25.5} ${by - 20} L ${x + 26} ${by - 24} L ${x + 29} ${by - 19} Z" fill="${color}" stroke="${K}" stroke-width="1.8"/>
+    <circle cx="${x + 27}" cy="${by - 16}" r="1.8" fill="#1d1d28"/>
+    <path d="M ${x + 9} ${by - 5} Q ${x + 16} ${by - 14} ${x + 22} ${by - 17} L ${x + 17} ${by - 18} Q ${x + 11} ${by - 13} ${x + 6} ${by - 7} Z" fill="${K}"/>
+    <circle cx="${x - 4}" cy="${by - 14}" r="8.5" fill="#fff" stroke="${K}" stroke-width="2.5"/>
+    <text x="${x - 4}" y="${by - 9.5}" font-size="12" font-weight="bold" fill="#1d1d28" text-anchor="middle" font-family="DejaVu Sans">${num}</text>
   </g>`;
 }
 
