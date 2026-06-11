@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const fs = require("node:fs");
 const path = require("node:path");
-const { checkVoice } = require("../utils");
+const { checkVoice, msToTime } = require("../utils");
 
 const FILE = path.join(__dirname, "..", "data", "playlists.json");
 function load() { try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; } }
@@ -16,6 +16,12 @@ module.exports = {
         .addStringOption((o) => o.setName("이름").setDescription("플레이리스트 이름").setRequired(true)))
     .addSubcommand((s) =>
       s.setName("재생").setDescription("저장해 둔 플레이리스트를 재생 목록에 담습니다")
+        .addStringOption((o) => o.setName("이름").setDescription("플레이리스트 이름").setRequired(true)))
+    .addSubcommand((s) =>
+      s.setName("추가").setDescription("지금 재생 중인 곡 한 곡을 플레이리스트에 추가합니다")
+        .addStringOption((o) => o.setName("이름").setDescription("플레이리스트 이름 (없으면 새로 만듦)").setRequired(true)))
+    .addSubcommand((s) =>
+      s.setName("정보").setDescription("플레이리스트에 담긴 곡 목록을 봅니다")
         .addStringOption((o) => o.setName("이름").setDescription("플레이리스트 이름").setRequired(true)))
     .addSubcommand((s) => s.setName("목록").setDescription("내 플레이리스트 목록을 봅니다"))
     .addSubcommand((s) =>
@@ -42,6 +48,45 @@ module.exports = {
       save(all);
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setTitle("📃 플레이리스트 저장")
         .setDescription(`**${name}** — ${mine[name].length}곡 저장 완료\n\`/플리 재생 ${name}\` 으로 불러올 수 있어요.`)] });
+    }
+
+    if (sub === "추가") {
+      const name = interaction.options.getString("이름").slice(0, 30);
+      const player = client.lavalink.getPlayer(interaction.guild.id);
+      const cur = player?.queue?.current;
+      if (!cur) return interaction.reply({ content: "⚠️ 지금 재생 중인 곡이 없어요.", flags: 64 });
+      const list = (mine[name] = mine[name] || []);
+      if (list.some((t) => t.uri === cur.info.uri))
+        return interaction.reply({ content: `⚠️ **${cur.info.title}** 은(는) 이미 **${name}** 플리에 있어요.`, flags: 64 });
+      if (list.length >= 100)
+        return interaction.reply({ content: `⚠️ **${name}** 플리가 가득 찼어요. (최대 100곡)`, flags: 64 });
+      list.push({ title: cur.info.title, uri: cur.info.uri, encoded: cur.encoded, info: cur.info, pluginInfo: cur.pluginInfo || {} });
+      save(all);
+      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setTitle("📃 한 곡 추가")
+        .setDescription(`**${cur.info.title}**\n→ **${name}** 플리에 담았어요. (총 ${list.length}곡)`)] });
+    }
+
+    if (sub === "정보") {
+      const name = interaction.options.getString("이름");
+      const list = mine[name];
+      if (!list || !list.length) return interaction.reply({ content: `⚠️ **${name}** 플레이리스트가 없어요. \`/플리 목록\` 으로 확인해 보세요.`, flags: 64 });
+      const lines = list.map((t, i) => {
+        const dur = t.info?.duration ? ` — \`${msToTime(t.info.duration)}\`` : "";
+        return `\`${String(i + 1).padStart(2, " ")}.\` ${t.title.slice(0, 55)}${dur}`;
+      });
+      const totalMs = list.reduce((a, t) => a + (t.info?.duration || 0), 0);
+      let desc = "";
+      let shown = 0;
+      for (const line of lines) {
+        if (desc.length + line.length + 1 > 3900) break;
+        desc += line + "\n";
+        shown++;
+      }
+      if (shown < lines.length) desc += `\n*...외 ${lines.length - shown}곡*`;
+      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865f2)
+        .setTitle(`📃 ${name} (${list.length}곡${totalMs ? ` · ${msToTime(totalMs)}` : ""})`)
+        .setDescription(desc)
+        .setFooter({ text: `/플리 재생 ${name} 으로 전부 담을 수 있어요` })] });
     }
 
     if (sub === "목록") {
