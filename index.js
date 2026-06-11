@@ -334,6 +334,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.isButton()) {
       if (interaction.customId.startsWith("music_")) return await onMusicButton(interaction);
       if (interaction.customId.startsWith("q_")) return await onQueueButton(interaction);
+      if (interaction.customId.startsWith("pl_")) return await client.commands.get("플리")?.handleButton?.(interaction);
       if (interaction.customId.startsWith("sts_") && (await rpg.handleButton(interaction))) return;
       if (await casino.handleButton(interaction)) return;
     }
@@ -383,7 +384,9 @@ async function onCommand(interaction) {
 
   // 음악 명령의 공개 응답은 잠시 보여주고 자동 삭제 (본인 전용 ephemeral 응답은 삭제 불가/불필요라 자연 무시됨)
   if (MUSIC_CMDS.has(interaction.commandName)) {
-    const ttl = MUSIC_REPLY_TTL[interaction.commandName] ?? MUSIC_REPLY_DEFAULT_TTL;
+    let ttl = MUSIC_REPLY_TTL[interaction.commandName] ?? MUSIC_REPLY_DEFAULT_TTL;
+    // /플리 정보 는 페이지를 넘겨보는 화면이라 더 오래 보여줌
+    if (interaction.commandName === "플리" && interaction.options.getSubcommand(false) === "정보") ttl = 60_000;
     if (ttl > 0) {
       const msg = await interaction.fetchReply().catch(() => null);
       if (msg) setTimeout(() => msg.delete().catch(() => {}), ttl);

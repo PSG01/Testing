@@ -1,10 +1,33 @@
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const { checkVoice, msToTime } = require("../utils");
 
 const FILE = path.join(__dirname, "..", "data", "playlists.json");
 const MAX_TRACKS = 200; // 플리당 최대 곡 수
+const PAGE_SIZE = 10; // /플리 정보 페이지당 곡 수
+
+// 재생목록 스타일 페이지 뷰 (◀️ ▶️ 로 넘김)
+function infoView(ownerId, name, list, page = 0) {
+  const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  page = Math.min(Math.max(0, page), totalPages - 1);
+  const start = page * PAGE_SIZE;
+  const lines = list.slice(start, start + PAGE_SIZE).map((t, i) => {
+    const dur = t.info?.duration ? ` — \`${msToTime(t.info.duration)}\`` : "";
+    return `\`${String(start + i + 1).padStart(3, " ")}.\` ${t.title.slice(0, 55)}${dur}`;
+  });
+  const totalMs = list.reduce((a, t) => a + (t.info?.duration || 0), 0);
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle(`📃 ${name} (${list.length}곡${totalMs ? ` · ${msToTime(totalMs)}` : ""})`)
+    .setDescription(lines.join("\n") || "*비어 있어요*")
+    .setFooter({ text: `페이지 ${page + 1} / ${totalPages} · /플리 재생 ${name} 으로 전부 담기` });
+  const nav = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`pl_info_${ownerId}_${page - 1}_${name}`).setEmoji("◀️").setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
+    new ButtonBuilder().setCustomId(`pl_info_${ownerId}_${page + 1}_${name}`).setEmoji("▶️").setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1)
+  );
+  return { embeds: [embed], components: [nav] };
+}
 function load() { try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; } }
 function save(d) { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(d)); }
 
@@ -71,23 +94,7 @@ module.exports = {
       const name = interaction.options.getString("이름");
       const list = mine[name];
       if (!list || !list.length) return interaction.reply({ content: `⚠️ **${name}** 플레이리스트가 없어요. \`/플리 목록\` 으로 확인해 보세요.`, flags: 64 });
-      const lines = list.map((t, i) => {
-        const dur = t.info?.duration ? ` — \`${msToTime(t.info.duration)}\`` : "";
-        return `\`${String(i + 1).padStart(2, " ")}.\` ${t.title.slice(0, 55)}${dur}`;
-      });
-      const totalMs = list.reduce((a, t) => a + (t.info?.duration || 0), 0);
-      let desc = "";
-      let shown = 0;
-      for (const line of lines) {
-        if (desc.length + line.length + 1 > 3900) break;
-        desc += line + "\n";
-        shown++;
-      }
-      if (shown < lines.length) desc += `\n*...외 ${lines.length - shown}곡*`;
-      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865f2)
-        .setTitle(`📃 ${name} (${list.length}곡${totalMs ? ` · ${msToTime(totalMs)}` : ""})`)
-        .setDescription(desc)
-        .setFooter({ text: `/플리 재생 ${name} 으로 전부 담을 수 있어요` })] });
+      return interaction.reply(infoView(userId, name, list, 0));
     }
 
     if (sub === "목록") {
@@ -149,5 +156,25 @@ module.exports = {
       if (!player.playing && !player.paused) await player.play();
       return interaction.editReply(`📃 **${name}** — ${added}/${list.length}곡을 재생 목록에 담았어요.`);
     }
+  },
+
+  // ◀️ ▶️ 페이지 버튼 (index.js 라우터에서 pl_ 접두사로 연결)
+  async handleButton(interaction) {
+    if (!interaction.customId.startsWith("pl_info_")) return false;
+    const parts = interaction.customId.split("_");
+    const ownerId = parts[2];
+    const page = parseInt(parts[3], 10) || 0;
+    const name = parts.slice(4).join("_"); // 이름에 _ 가 있어도 안전
+    if (interaction.user.id !== ownerId) {
+      await interaction.reply({ content: "⚠️ 본인 플리만 넘겨볼 수 있어요. `/플리 정보` 로 직접 열어보세요!", flags: 64 });
+      return true;
+    }
+    const list = load()[ownerId]?.[name];
+    if (!list || !list.length) {
+      await interaction.update({ content: `⚠️ **${name}** 플레이리스트를 찾을 수 없어요.`, embeds: [], components: [] });
+      return true;
+    }
+    await interaction.update(infoView(ownerId, name, list, page));
+    return true;
   },
 };
