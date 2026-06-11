@@ -8,7 +8,7 @@ const MAX_TRACKS = 200; // 플리당 최대 곡 수
 const PAGE_SIZE = 10; // /플리 정보 페이지당 곡 수
 
 // 재생목록 스타일 페이지 뷰 (◀️ ▶️ 로 넘김)
-function infoView(ownerId, name, list, page = 0) {
+function infoView(ownerId, name, list, page = 0, expiresAt = Date.now() + 120_000) {
   const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   page = Math.min(Math.max(0, page), totalPages - 1);
   const start = page * PAGE_SIZE;
@@ -20,11 +20,11 @@ function infoView(ownerId, name, list, page = 0) {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle(`📃 ${name} (${list.length}곡${totalMs ? ` · ${msToTime(totalMs)}` : ""})`)
-    .setDescription(lines.join("\n") || "*비어 있어요*")
+    .setDescription(`⏳ <t:${Math.floor(expiresAt / 1000)}:R> 자동 삭제\n\n` + (lines.join("\n") || "*비어 있어요*"))
     .setFooter({ text: `페이지 ${page + 1} / ${totalPages} · /플리 재생 ${name} 으로 전부 담기` });
   const nav = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`pl_info_${ownerId}_${page - 1}_${name}`).setEmoji("◀️").setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
-    new ButtonBuilder().setCustomId(`pl_info_${ownerId}_${page + 1}_${name}`).setEmoji("▶️").setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1)
+    new ButtonBuilder().setCustomId(`pl_info_${ownerId}_${page - 1}_${expiresAt}_${name}`).setEmoji("◀️").setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
+    new ButtonBuilder().setCustomId(`pl_info_${ownerId}_${page + 1}_${expiresAt}_${name}`).setEmoji("▶️").setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1)
   );
   return { embeds: [embed], components: [nav] };
 }
@@ -68,10 +68,23 @@ module.exports = {
       const tracks = [];
       if (player.queue.current) tracks.push(pack(player.queue.current));
       for (const t of player.queue.tracks) tracks.push(pack(t));
-      mine[name] = tracks.slice(0, MAX_TRACKS);
+      // 같은 이름의 플리가 있으면 덮어쓰지 않고 "없는 곡만 추가"
+      const existing = (mine[name] = mine[name] || []);
+      const had = existing.length;
+      const have = new Set(existing.map((t) => t.uri));
+      let addedNew = 0;
+      for (const t of tracks) {
+        if (have.has(t.uri) || existing.length >= MAX_TRACKS) continue;
+        existing.push(t);
+        have.add(t.uri);
+        addedNew++;
+      }
       save(all);
+      const full = existing.length >= MAX_TRACKS ? `\n⚠️ 플리가 가득 차서(최대 ${MAX_TRACKS}곡) 일부는 담지 못했어요.` : "";
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setTitle("📃 플레이리스트 저장")
-        .setDescription(`**${name}** — ${mine[name].length}곡 저장 완료\n\`/플리 재생 ${name}\` 으로 불러올 수 있어요.`)] });
+        .setDescription(had
+          ? `**${name}** — 기존 ${had}곡에 새 곡 **${addedNew}곡** 추가 (중복 제외 · 총 ${existing.length}곡)${full}`
+          : `**${name}** — ${existing.length}곡 저장 완료${full}\n\`/플리 재생 ${name}\` 으로 불러올 수 있어요.`)] });
     }
 
     if (sub === "추가") {
@@ -164,7 +177,8 @@ module.exports = {
     const parts = interaction.customId.split("_");
     const ownerId = parts[2];
     const page = parseInt(parts[3], 10) || 0;
-    const name = parts.slice(4).join("_"); // 이름에 _ 가 있어도 안전
+    const expiresAt = parseInt(parts[4], 10) || Date.now() + 120_000;
+    const name = parts.slice(5).join("_"); // 이름에 _ 가 있어도 안전
     if (interaction.user.id !== ownerId) {
       await interaction.reply({ content: "⚠️ 본인 플리만 넘겨볼 수 있어요. `/플리 정보` 로 직접 열어보세요!", flags: 64 });
       return true;
@@ -174,7 +188,7 @@ module.exports = {
       await interaction.update({ content: `⚠️ **${name}** 플레이리스트를 찾을 수 없어요.`, embeds: [], components: [] });
       return true;
     }
-    await interaction.update(infoView(ownerId, name, list, page));
+    await interaction.update(infoView(ownerId, name, list, page, expiresAt));
     return true;
   },
 };

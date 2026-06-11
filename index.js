@@ -386,7 +386,7 @@ async function onCommand(interaction) {
   if (MUSIC_CMDS.has(interaction.commandName)) {
     let ttl = MUSIC_REPLY_TTL[interaction.commandName] ?? MUSIC_REPLY_DEFAULT_TTL;
     // /플리 정보 는 페이지를 넘겨보는 화면이라 더 오래 보여줌
-    if (interaction.commandName === "플리" && interaction.options.getSubcommand(false) === "정보") ttl = 60_000;
+    if (interaction.commandName === "플리" && interaction.options.getSubcommand(false) === "정보") ttl = 120_000;
     if (ttl > 0) {
       const msg = await interaction.fetchReply().catch(() => null);
       if (msg) setTimeout(() => msg.delete().catch(() => {}), ttl);
