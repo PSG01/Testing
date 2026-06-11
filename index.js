@@ -114,6 +114,15 @@ client.on("raw", (d) => client.lavalink.sendRawData(d));
 // ── 고정 패널 갱신 ─────────────────────────────────────────────────
 const panelMessages = new Map();
 
+// 서버당 패널 작업(갱신/재생성)을 한 번에 하나씩만 — 동시 실행되면 패널이 중복 생성된다
+const panelLocks = new Map();
+function withPanelLock(guildId, fn) {
+  const prev = panelLocks.get(guildId) || Promise.resolve();
+  const next = prev.then(fn, fn);
+  panelLocks.set(guildId, next.catch(() => {}));
+  return next;
+}
+
 async function getPanelMessage(guild) {
   const cfg = getConfig(guild.id);
   if (!cfg) return null;
@@ -127,8 +136,8 @@ async function getPanelMessage(guild) {
   return msg;
 }
 
-// 패널을 채널 맨 아래에 새로 띄움 (기존 패널은 삭제) — 설정/캐시 갱신 포함
-async function recreatePanel(guild) {
+// 패널을 채널 맨 아래에 새로 띄움 (기존 패널은 삭제, 핀 유지) — 설정/캐시 갱신 포함
+async function recreatePanelInner(guild) {
   const cfg = getConfig(guild.id);
   if (!cfg) return null;
   const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
@@ -139,32 +148,46 @@ async function recreatePanel(guild) {
   if (msg) {
     setConfig(guild.id, cfg.channelId, msg.id);
     panelMessages.set(guild.id, msg);
+    // 핀 유지 + "메시지를 고정했어요" 시스템 메시지는 바로 청소
+    await msg.pin().catch(() => {});
+    const recent = await ch.messages.fetch({ limit: 5 }).catch(() => null);
+    const sysPin = recent?.find((m) => m.system && m.type === 6); // 6 = ChannelPinnedMessage
+    if (sysPin) await sysPin.delete().catch(() => {});
   }
   return msg;
 }
 
-async function refreshPanel(guildId) {
+async function refreshPanelInner(guildId) {
   const guild = client.guilds.cache.get(guildId);
   if (!guild || !getConfig(guildId)) return;
   const msg = await getPanelMessage(guild);
-  if (!msg) return recreatePanel(guild); // 패널이 사라졌으면 재생성
+  if (!msg) return recreatePanelInner(guild); // 패널이 사라졌으면 재생성
   const player = client.lavalink.getPlayer(guildId);
   try {
     await msg.edit(buildView(player));
   } catch (e) {
-    if (e?.code === 10008) return recreatePanel(guild); // Unknown Message → 재생성
+    if (e?.code === 10008) return recreatePanelInner(guild); // Unknown Message → 재생성
     console.error("패널 갱신 실패:", e?.message);
   }
 }
 
+// 공개 진입점은 전부 락을 통과 — 동시 호출로 인한 패널 중복 생성 방지
+function refreshPanel(guildId) {
+  return withPanelLock(guildId, () => refreshPanelInner(guildId));
+}
+
 // 패널이 채널 맨 아래 메시지가 되도록 보장 (다른 메시지가 쌓이면 다시 내려 붙임)
-async function ensurePanelBottom(guild) {
-  const cfg = getConfig(guild.id);
-  if (!cfg) return;
-  const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
-  if (!ch) return;
-  if (ch.lastMessageId && ch.lastMessageId !== cfg.messageId) await recreatePanel(guild);
-  else await refreshPanel(guild.id);
+function ensurePanelBottom(guild) {
+  return withPanelLock(guild.id, async () => {
+    const cfg = getConfig(guild.id);
+    if (!cfg) return;
+    const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
+    if (!ch) return;
+    // 패널 이후에 "실제로 존재하는" 메시지가 있을 때만 재생성 (삭제된 알림 메시지 때문에 헛재생성 방지)
+    const after = await ch.messages.fetch({ after: cfg.messageId, limit: 1 }).catch(() => null);
+    if (after && after.size > 0) await recreatePanelInner(guild);
+    else await refreshPanelInner(guild.id);
+  });
 }
 
 // 진행바 등 주기 갱신 — 전역 단일 타이머 (재시작/이벤트 누락에도 견고)
