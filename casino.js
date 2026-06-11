@@ -135,6 +135,7 @@ const builders = [
   new SlashCommandBuilder().setName("잔액").setDescription("내 코인 잔액과 기록을 봅니다"),
   new SlashCommandBuilder().setName("출석").setDescription("매일 무료 코인을 받습니다"),
   new SlashCommandBuilder().setName("노가다").setDescription("광산에서 광물을 캐서 코인을 법니다 (5분 쿨) ⛏️"),
+  new SlashCommandBuilder().setName("퀘스트").setDescription("오늘의 일일 퀘스트 3개와 보상을 확인합니다 📜"),
   new SlashCommandBuilder()
     .setName("경마")
     .setDescription("우승마를 맞히면 x5.5! 25초간 모두 함께 베팅 🏇")
@@ -217,7 +218,7 @@ async function runSpin(interaction, bet) {
   let jackpotBonus = 0;
   if (result.jackpot) jackpotBonus = economy.claimJackpot(userId); // 777 → 잭팟 풀 전액!
   if (win > 0) economy.addBalance(userId, win);
-  economy.recordSpin(userId, bet, win);
+  economy.recordSpin(userId, bet, win, "slot");
   markSettled();
   const balance = economy.getUser(userId).balance;
   const net = win - bet;
@@ -378,7 +379,7 @@ async function runCascade(interaction, bet) {
     freezeAfter(() => Promise.resolve(loading), bdur, bpng, "bonus.png", buildBonusEmbed);
   }
 
-  economy.recordSpin(userId, bet, grandWin);
+  economy.recordSpin(userId, bet, grandWin, "tumble");
   });
 }
 
@@ -418,7 +419,7 @@ async function runRoulette(interaction, bet, type, pick) {
   const { gif, finalPng, durationMs } = await rouletteGif.render(result, betLabel);
 
   if (win > 0) economy.addBalance(userId, win);
-  economy.recordSpin(userId, bet, win);
+  economy.recordSpin(userId, bet, win, "roulette");
   markSettled();
   const bal = economy.getUser(userId).balance;
   const net = win - bet;
@@ -532,8 +533,8 @@ async function onDuelButton(interaction) {
   } else {
     const winnerId = sumA > sumB ? challengerId : targetId;
     economy.addBalance(winnerId, pot * 2);
-    economy.recordSpin(winnerId, pot, pot * 2);
-    economy.recordSpin(sumA > sumB ? targetId : challengerId, pot, 0);
+    economy.recordSpin(winnerId, pot, pot * 2, "dice");
+    economy.recordSpin(sumA > sumB ? targetId : challengerId, pot, 0, "dice");
     resultLine = `<@${winnerId}> 님이 **${(pot * 2).toLocaleString()}** ${COIN} 을 가져갑니다!`;
   }
 
@@ -598,13 +599,13 @@ async function runCrash(interaction, bet) {
       if (state.cashed) {
         const win = Math.floor(bet * state.current);
         economy.addBalance(userId, win);
-        economy.recordSpin(userId, bet, win);
+        economy.recordSpin(userId, bet, win, "crash");
         await interaction.editReply({ embeds: [crashEmbed(user, bet, state.current, "cash")], components: [crashRow(userId, true)] });
         return;
       }
       mult = Math.round(mult * 1.18 * 100) / 100;
       if (mult >= boomAt) {
-        economy.recordSpin(userId, bet, 0);
+        economy.recordSpin(userId, bet, 0, "crash");
         await interaction.editReply({ embeds: [crashEmbed(user, bet, boomAt, "boom")], components: [crashRow(userId, true)] });
         return;
       }
@@ -670,7 +671,7 @@ async function bjFinish(interaction, game) {
   const res = blackjack.settle(game.player, game.dealer);
   const win = Math.floor(game.bet * res.mult);
   if (win > 0) economy.addBalance(interaction.user.id, win);
-  economy.recordSpin(interaction.user.id, game.bet, win);
+  economy.recordSpin(interaction.user.id, game.bet, win, "blackjack");
   const balance = economy.getUser(interaction.user.id).balance;
   bjGames.delete(interaction.user.id);
   return { ...(await bjView(game, { reveal: true, resultLabel: res.label, win, balance, user: interaction.user })), components: [bjButtons(game.bet, true)] };
@@ -805,7 +806,7 @@ async function onHlButton(interaction) {
   if (action === "cash") {
     const win = Math.floor(game.bet * game.mult);
     economy.addBalance(interaction.user.id, win);
-    economy.recordSpin(interaction.user.id, game.bet, win);
+    economy.recordSpin(interaction.user.id, game.bet, win, "highlow");
     const balance = economy.getUser(interaction.user.id).balance;
     hlGames.delete(interaction.user.id);
     return interaction.update({ ...(await hlView(game, { ended: true, label: "캐시아웃 💰", win, balance, user: interaction.user })), components: [hlButtons(game, true)] });
@@ -830,7 +831,7 @@ async function onHlButton(interaction) {
   const correct = verdict === "win";
 
   if (!correct) {
-    economy.recordSpin(interaction.user.id, game.bet, 0);
+    economy.recordSpin(interaction.user.id, game.bet, 0, "highlow");
     const balance = economy.getUser(interaction.user.id).balance;
     const ended = { ...game, current: next };
     hlGames.delete(interaction.user.id);
@@ -941,6 +942,9 @@ async function onCommand(interaction) {
       const horse = interaction.options.getInteger("말") - 1;
       const raceBet = interaction.options.getInteger("베팅");
       return runRaceJoin(interaction, horse, raceBet);
+    }
+    case "퀘스트": {
+      return interaction.reply(questView(userId, interaction.user));
     }
     case "파산": {
       const r = economy.claimBailout(userId, name);
@@ -1059,6 +1063,7 @@ async function onMineButton(interaction) {
   });
   const { gif, finalPng, durationMs } = await grindGif.render({ ...ore, coins });
   const balance = economy.grindCommit(interaction.user.id, interaction.user.username, coins);
+  economy.questEvent(interaction.user.id, ["play_mine"]);
   const buildMineEmbed = (img) =>
     new EmbedBuilder()
       .setColor(ore.tier >= 4 ? 0xf1c40f : ore.tier >= 2 ? 0x2ecc71 : 0x95a5a6)
@@ -1132,10 +1137,10 @@ async function startRace(channelId) {
       if (b.horse === winner) {
         const win = Math.floor(b.bet * RACE_MULT);
         economy.addBalance(uid, win);
-        economy.recordSpin(uid, b.bet, win);
+        economy.recordSpin(uid, b.bet, win, "race");
         lines.push(`🏆 **${b.name}**  +${win.toLocaleString()} ${COIN}`);
       } else {
-        economy.recordSpin(uid, b.bet, 0);
+        economy.recordSpin(uid, b.bet, 0, "race");
         lines.push(`💸 ${b.name}  -${b.bet.toLocaleString()} ${COIN}`);
       }
     }
@@ -1159,6 +1164,42 @@ async function startRace(channelId) {
 
 async function onRaceButton(interaction) {
   return interaction.reply({ content: "참가 방법: `/경마 말:<1~6> 베팅:<코인>`", ephemeral: true });
+}
+
+// ── 일일 퀘스트 ────────────────────────────────────────────────────
+function questBar(q) {
+  const filled = Math.round((q.progress / q.target) * 8);
+  const bar = "▰".repeat(filled) + "▱".repeat(8 - filled);
+  const status = q.claimed ? "✅ 수령 완료" : q.done ? "🎁 **보상 받기 가능!**" : `${q.progress}/${q.target}`;
+  return `${q.claimed ? "✅" : q.done ? "🎁" : "▫️"} **${q.label}** — ${q.reward} ${COIN}\n\`${bar}\` ${status}`;
+}
+function questView(userId, user) {
+  const board = economy.questBoard(userId);
+  const claimable = board.some((q) => q.done && !q.claimed);
+  const embed = new EmbedBuilder()
+    .setColor(claimable ? 0x2ecc71 : 0x5865f2)
+    .setAuthor(authorTag(user))
+    .setTitle("📜 오늘의 퀘스트")
+    .setDescription(board.map(questBar).join("\n\n"))
+    .setFooter({ text: "매일 자정(KST)에 새 퀘스트 3개로 갱신 · 3개 모두 달성 시 +300 보너스!" });
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("quest_claim").setLabel("보상 받기").setEmoji("🎁").setStyle(ButtonStyle.Success).setDisabled(!claimable),
+    new ButtonBuilder().setCustomId("quest_refresh").setEmoji("🔄").setStyle(ButtonStyle.Secondary)
+  );
+  return { embeds: [embed], components: [row] };
+}
+async function onQuestButton(interaction) {
+  const action = interaction.customId.split("_")[1];
+  if (action === "refresh") return interaction.update(questView(interaction.user.id, interaction.user));
+  // claim — 누른 사람 본인의 퀘스트를 수령
+  const r = economy.claimQuests(interaction.user.id, interaction.user.username);
+  if (!r.ok) return interaction.reply({ content: "아직 받을 보상이 없어요! 퀘스트를 먼저 완료해주세요.", ephemeral: true });
+  await interaction.update(questView(interaction.user.id, interaction.user));
+  const lines = r.claimed.map((q) => `• ${q.label} +${q.reward} ${COIN}`).join("\n");
+  return interaction.followUp({
+    content: `🎁 퀘스트 보상 수령!\n${lines}` + (r.allBonus ? `\n🌟 **전부 달성 보너스 +${r.allBonus} ${COIN}**` : "") + `\n→ 총 **+${r.total.toLocaleString()}** ${COIN} (잔액 ${r.balance.toLocaleString()})`,
+    ephemeral: true,
+  });
 }
 
 // ── 외부 노출 ──────────────────────────────────────────────────────
@@ -1188,6 +1229,7 @@ async function handleButton(interaction) {
   if (id.startsWith("crash_")) return (await onCrashButton(interaction), true);
   if (id.startsWith("race_")) return (await onRaceButton(interaction), true);
   if (id.startsWith("mine_")) return (await onMineButton(interaction), true);
+  if (id.startsWith("quest_")) return (await onQuestButton(interaction), true);
   return false;
 }
 
