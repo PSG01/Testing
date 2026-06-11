@@ -1,23 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 
-// 임베드 필드 1024자 제한에 맞춰 줄 목록을 여러 필드로 쪼갠다
-function fields(name, lines) {
-  const out = [];
-  let buf = [];
-  let len = 0;
-  for (const line of lines) {
-    if (len + line.length + 1 > 1000) {
-      out.push({ name: out.length ? `${name} (계속)` : name, value: buf.join("\n") });
-      buf = [];
-      len = 0;
-    }
-    buf.push(line);
-    len += line.length + 1;
-  }
-  if (buf.length) out.push({ name: out.length ? `${name} (계속)` : name, value: buf.join("\n") });
-  return out;
-}
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("명령어")
@@ -32,20 +14,22 @@ module.exports = {
       .map((c) => c.data.toJSON())
       .filter((c) => c.name !== "명령어")
       .sort((a, b) => a.name.localeCompare(b.name, "ko"))
-      .map(line);
-    const games = casino.commandsJSON.map(line);
-    const dungeon = rpg.commandsJSON.map(line);
+      .map(line)
+      .join("\n");
+    const games = casino.commandsJSON.map(line).join("\n");
+    const dungeon = rpg.commandsJSON.map(line).join("\n");
 
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle("📖 전체 명령어")
-      .addFields(
-        ...fields("🎵 음악", music),
-        ...fields("🎰 게임 · 경제", games),
-        ...fields("🗼 던전 (등반)", dungeon)
-      )
-      .setFooter({ text: "게임은 재미용 가짜 코인입니다 (실제 돈·도박과 무관)" });
+    // 카테고리당 임베드 1개 — 필드 분할로 인한 잘림/어그러짐 없이 전체 폭으로 표시
+    const embeds = [
+      new EmbedBuilder().setColor(0x5865f2).setTitle("🎵 음악").setDescription(music.slice(0, 4096)),
+      new EmbedBuilder().setColor(0xf1c40f).setTitle("🎰 게임 · 경제").setDescription(games.slice(0, 4096)),
+      new EmbedBuilder()
+        .setColor(0x9b59f0)
+        .setTitle("🗼 던전 (등반)")
+        .setDescription(dungeon.slice(0, 4096))
+        .setFooter({ text: "게임은 재미용 가짜 코인입니다 (실제 돈·도박과 무관)" }),
+    ];
 
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({ embeds, ephemeral: true });
   },
 };
