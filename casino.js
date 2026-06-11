@@ -82,8 +82,8 @@ const builders = [
       o.setName("베팅").setDescription(`베팅할 코인 (${MIN_BET}~${MAX_BET})`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true)
     ),
   new SlashCommandBuilder()
-    .setName("과일팡")
-    .setDescription("과일팡! 과일이 터지고 또 터지면 연쇄 배수 상승 💥")
+    .setName("텀블")
+    .setDescription("텀블 슬롯! 과일이 터진 자리에 새 과일이 떨어지며 연쇄 배수 상승 💥")
     .addIntegerOption((o) =>
       o.setName("베팅").setDescription(`베팅할 코인 (${MIN_BET}~${MAX_BET})`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true)
     ),
@@ -267,9 +267,9 @@ function casEmbed(step, bet, runningWin, { final = false, balance = 0, user = nu
   if (final) {
     if (runningWin >= bet * 10) title = "🎉🎆 메가 윈!! 🎆🎉";
     else if (runningWin >= bet * 5) title = "✨🎉 빅 윈! 🎉✨";
-    else if (runningWin > 0) title = "🍒 과일팡 — 당첨!";
-    else title = "🍒 과일팡";
-  } else title = titleMap[step.phase] || "🍒 과일팡";
+    else if (runningWin > 0) title = "🍒 텀블 — 당첨!";
+    else title = "🍒 텀블";
+  } else title = titleMap[step.phase] || "🍒 텀블";
   e.setTitle(title).setDescription(desc);
 
   if (final) {
@@ -336,7 +336,7 @@ async function runCascade(interaction, bet) {
   let grandWin = totalWin;
   const bal = economy.getUser(userId).balance;
   const net = totalWin - bet;
-  const title = freeSpins > 0 ? "🎆 보너스 진입!" : totalWin >= bet * 5 ? "✨🎉 빅 윈! 🎉✨" : totalWin > 0 ? "🍒 과일팡 — 당첨!" : "🍒 과일팡";
+  const title = freeSpins > 0 ? "🎆 보너스 진입!" : totalWin >= bet * 5 ? "✨🎉 빅 윈! 🎉✨" : totalWin > 0 ? "🍒 텀블 — 당첨!" : "🍒 텀블";
   const buildCasEmbed = (imgName) =>
     new EmbedBuilder()
       .setColor(totalWin > bet ? 0x2ecc71 : totalWin === bet ? 0x5865f2 : 0xe74c3c)
@@ -856,7 +856,7 @@ async function onCommand(interaction) {
       await interaction.deferReply();
       return runSpin(interaction, interaction.options.getInteger("베팅"));
     }
-    case "과일팡": {
+    case "텀블": {
       await interaction.deferReply();
       return runCascade(interaction, interaction.options.getInteger("베팅"));
     }
@@ -971,7 +971,7 @@ async function onCommand(interaction) {
         .setTitle("🎰 슬롯 봇 도움말")
         .setDescription(
           "`/슬롯 [베팅]` — 클래식 3릴 슬롯\n" +
-            "`/과일팡 [베팅]` — 과일이 터지는 연쇄 슬롯 (연쇄 배수 ↑) 🍒\n" +
+            "`/텀블 [베팅]` — 과일이 터지고 떨어지는 텀블 슬롯 (연쇄 배수 ↑) 🍒\n" +
             "`/블랙잭 [베팅]` — 딜러와 21 대결 🃏\n" +
             "`/하이로우 [베팅]` — 다음 카드 높/낮 맞히기 🎴\n" +
             "`/룰렛 [베팅] [종류] (숫자)` — 유러피언 룰렛 🎡 (빨강/검정/홀짝 x2 · 숫자 x36)\n" +
@@ -982,7 +982,7 @@ async function onCommand(interaction) {
         )
         .addFields(
           { name: "💰 슬롯 배당 (3개 일치)", value: slot.paytable() },
-          { name: "🍒 과일팡", value: cascade.paytable() }
+          { name: "🍒 텀블", value: cascade.paytable() }
         )
         .setFooter({ text: `시작 코인 ${economy.START_BALANCE} · 출석 ${economy.DAILY_AMOUNT} · 재미용 가짜 코인입니다` });
       return interaction.reply({ embeds: [embed] });
@@ -1020,7 +1020,7 @@ async function onCasButton(interaction) {
   if (action === "inc") bet = Math.min(MAX_BET, bet * 2);
   const e = new EmbedBuilder()
     .setColor(0x9b59f0)
-    .setTitle("🍒 과일팡")
+    .setTitle("🍒 텀블")
     .setDescription(`다음 베팅: **${bet}** ${COIN}\n잔액: **${balance}** ${COIN}\n\n💥 버튼으로 스핀하거나 ➖➕로 베팅을 조절하세요.`)
     .setFooter({ text: "재미용 가짜 코인입니다 (실제 돈·도박과 무관)" });
   return interaction.update({ embeds: [e], components: [casButtons(bet)] });
