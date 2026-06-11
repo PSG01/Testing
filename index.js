@@ -315,6 +315,18 @@ async function playQuery({ guild, voiceChannel, textChannel, query, requester })
 client.on("interactionCreate", async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
+      // 음악 채널에서는 음악 관련 명령(+/셋업)만 허용 — 게임 등은 다른 채널에서
+      const cfg = interaction.guildId ? getConfig(interaction.guildId) : null;
+      if (
+        cfg &&
+        interaction.channelId === cfg.channelId &&
+        !MUSIC_CMDS.has(interaction.commandName) &&
+        interaction.commandName !== "셋업"
+      )
+        return interaction.reply({
+          content: "⚠️ 음악 채널에서는 음악 명령만 사용할 수 있어요. 게임/기타 명령은 다른 채널에서 해주세요!",
+          flags: 64,
+        });
       if (casino.commandNames.has(interaction.commandName)) return await casino.handleCommand(interaction);
       if (rpg.commandNames.has(interaction.commandName)) return await rpg.handleCommand(interaction);
       return await onCommand(interaction);
