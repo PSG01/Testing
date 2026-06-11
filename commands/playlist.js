@@ -33,9 +33,11 @@ module.exports = {
       const player = client.lavalink.getPlayer(interaction.guild.id);
       if (!player || (!player.queue.current && player.queue.tracks.length === 0))
         return interaction.reply({ content: "⚠️ 저장할 곡이 없어요. 먼저 노래를 재생해 주세요.", flags: 64 });
+      // encoded(라발링크 트랙 원본)까지 저장 → 재생 시 검색 없이 즉시 복원
+      const pack = (t) => ({ title: t.info.title, uri: t.info.uri, encoded: t.encoded, info: t.info, pluginInfo: t.pluginInfo || {} });
       const tracks = [];
-      if (player.queue.current) tracks.push({ title: player.queue.current.info.title, uri: player.queue.current.info.uri });
-      for (const t of player.queue.tracks) tracks.push({ title: t.info.title, uri: t.info.uri });
+      if (player.queue.current) tracks.push(pack(player.queue.current));
+      for (const t of player.queue.tracks) tracks.push(pack(t));
       mine[name] = tracks.slice(0, 100);
       save(all);
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setTitle("📃 플레이리스트 저장")
@@ -78,11 +80,25 @@ module.exports = {
       if (!player.connected) await player.connect();
 
       let added = 0;
-      for (const t of list) {
+      const instant = []; // encoded 저장본 → 검색 없이 즉시 복원
+      const needSearch = []; // 구버전 저장본(제목/URL만) → 검색 필요
+      for (const t of list) (t.encoded ? instant : needSearch).push(t);
+
+      const instantTracks = [];
+      for (const t of instant) {
         try {
-          const res = await player.search({ query: t.uri }, interaction.user);
-          if (res?.tracks?.length) { await player.queue.add(res.tracks[0]); added++; }
+          instantTracks.push(client.lavalink.utils.buildTrack({ encoded: t.encoded, info: t.info, pluginInfo: t.pluginInfo || {} }, interaction.user));
         } catch { /* 한 곡 실패는 건너뜀 */ }
+      }
+      // 구버전 곡은 10곡씩 병렬 검색 (순차 검색 대비 ~10배)
+      for (let i = 0; i < needSearch.length; i += 10) {
+        const chunk = needSearch.slice(i, i + 10);
+        const results = await Promise.all(chunk.map((t) => player.search({ query: t.uri }, interaction.user).catch(() => null)));
+        for (const res of results) if (res?.tracks?.length) instantTracks.push(res.tracks[0]);
+      }
+      if (instantTracks.length) {
+        await player.queue.add(instantTracks);
+        added = instantTracks.length;
       }
       if (!player.playing && !player.paused) await player.play();
       return interaction.editReply(`📃 **${name}** — ${added}/${list.length}곡을 재생 목록에 담았어요.`);
