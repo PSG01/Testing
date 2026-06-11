@@ -27,6 +27,7 @@ function persist() {
 const builders = [
   new SlashCommandBuilder().setName("등반").setDescription("덱을 키우며 10층 탑을 오르는 카드 전투! (슬레이 더 스파이어풍) 🗼"),
   new SlashCommandBuilder().setName("내덱").setDescription("진행 중인 등반의 덱을 봅니다 🃏"),
+  new SlashCommandBuilder().setName("등반포기").setDescription("진행 중인 등반을 끝냅니다 (확인 버튼 후 삭제) 🏳️"),
 ];
 const commandsJSON = builders.map((b) => b.toJSON());
 const commandNames = new Set(builders.map((b) => b.name));
@@ -104,6 +105,20 @@ async function handleCommand(interaction) {
           .setDescription(Object.values(sts.CHARS).map((c) =>
             `${c.emoji} **${c.name}** (HP ${c.hp})\n　${c.desc}\n　패시브: ${c.passive}`).join("\n\n"))],
         components: [row],
+      });
+    }
+    case "등반포기": {
+      const run = runs.get(userId);
+      if (!run) return interaction.reply({ content: "⚠️ 진행 중인 등반이 없어요.", ephemeral: true });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`sts_quit_${userId}_yes`).setLabel("포기한다").setEmoji("🏳️").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`sts_quit_${userId}_no`).setLabel("계속 등반").setStyle(ButtonStyle.Secondary)
+      );
+      return interaction.reply({
+        embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle("🏳️ 등반 포기")
+          .setDescription(`정말 포기할까요? **${run.floor + 1}층** 진행 상황(덱 ${run.deck.length}장, 유물 ${(run.relics || []).length}개)이 삭제됩니다.\n모은 코인은 유지돼요.`)],
+        components: [row],
+        ephemeral: true,
       });
     }
     case "내덱": {
@@ -193,6 +208,19 @@ async function handleButton(interaction) {
 
   const run = runs.get(owner);
   if (!run) return (await interaction.reply({ content: "⚠️ 진행 중인 등반이 없어요. `/등반` 으로 시작!", ephemeral: true }), true);
+
+  // 등반 포기 확인
+  if (action === "quit") {
+    if (arg === "no")
+      return (await interaction.update({ embeds: [new EmbedBuilder().setColor(0x2ecc71).setTitle("⛰️ 계속 등반!").setDescription("진행 중인 전투 메시지에서 이어가 주세요.")], components: [] }), true);
+    runs.delete(owner);
+    persist();
+    return (await interaction.update({
+      embeds: [new EmbedBuilder().setColor(0x99a).setTitle("🏳️ 등반 포기")
+        .setDescription(`**${run.floor + 1}층**에서 등반을 마쳤습니다. 모은 코인은 그대로예요.\n다음 도전은 \`/등반\`!`)],
+      components: [],
+    }), true);
+  }
 
   // 카드 보상 선택
   if (action === "pick") {
