@@ -154,9 +154,17 @@ async function ensurePanelBottom(guild) {
 
 // 진행바 등 주기 갱신 — 전역 단일 타이머 (재시작/이벤트 누락에도 견고)
 setInterval(() => {
+  // 고정 채널 패널
   for (const guildId of Object.keys(getAll())) {
     const p = client.lavalink?.getPlayer?.(guildId);
     if (p?.queue?.current && !p.paused) refreshPanel(guildId).catch(() => {});
+  }
+  // 고정 채널이 없는 서버의 임시 플레이어 메시지
+  for (const [guildId, msg] of nowPlayingMessages) {
+    if (getConfig(guildId)) { nowPlayingMessages.delete(guildId); continue; }
+    const p = client.lavalink?.getPlayer?.(guildId);
+    if (p?.queue?.current && !p.paused)
+      msg.edit(buildView(p)).catch(() => nowPlayingMessages.delete(guildId));
   }
 }, 8000);
 
@@ -165,17 +173,30 @@ client.lavalink.nodeManager
   .on("connect", (node) => console.log(`✅ Lavalink 노드 연결됨: ${node.id}`))
   .on("error", (node, err) => console.error(`❌ Lavalink 오류 (${node.id}):`, err?.message));
 
+// 고정 채널 설정이 없는 서버용: 곡마다 새 임베드를 쌓지 않고 한 메시지를 유지/갱신
+const nowPlayingMessages = new Map();
+
 client.lavalink.on("trackStart", async (player) => {
   if (getConfig(player.guildId)) {
     const guild = client.guilds.cache.get(player.guildId);
     if (guild) await ensurePanelBottom(guild); // 곡 시작 시 패널을 맨 아래로 + 즉시 갱신
   } else {
-    client.channels.cache.get(player.textChannelId)?.send(buildView(player)).catch(() => {});
+    console.log(`ℹ️ 음악 채널 설정이 없어 임시 플레이어로 표시합니다 (guild ${player.guildId}) — /셋업 으로 고정 채널을 지정하세요.`);
+    const ch = client.channels.cache.get(player.textChannelId);
+    if (!ch) return;
+    const old = nowPlayingMessages.get(player.guildId);
+    if (old) await old.delete().catch(() => {});
+    const msg = await ch.send(buildView(player)).catch(() => null);
+    if (msg) nowPlayingMessages.set(player.guildId, msg);
   }
 });
 client.lavalink.on("queueEnd", async (player) => {
   if (getConfig(player.guildId)) await refreshPanel(player.guildId);
-  else client.channels.cache.get(player.textChannelId)?.send("⏹️ 재생 목록의 노래를 모두 들었어요.").catch(() => {});
+  else {
+    const old = nowPlayingMessages.get(player.guildId);
+    if (old) { await old.delete().catch(() => {}); nowPlayingMessages.delete(player.guildId); }
+    client.channels.cache.get(player.textChannelId)?.send("⏹️ 재생 목록의 노래를 모두 들었어요.").catch(() => {});
+  }
 });
 client.lavalink.on("playerDestroy", async (player) => {
   await refreshPanel(player.guildId);
