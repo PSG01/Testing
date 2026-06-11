@@ -4,6 +4,7 @@ const path = require("node:path");
 const { checkVoice, msToTime } = require("../utils");
 
 const FILE = path.join(__dirname, "..", "data", "playlists.json");
+const MAX_TRACKS = 200; // 플리당 최대 곡 수
 function load() { try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; } }
 function save(d) { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(d)); }
 
@@ -44,7 +45,7 @@ module.exports = {
       const tracks = [];
       if (player.queue.current) tracks.push(pack(player.queue.current));
       for (const t of player.queue.tracks) tracks.push(pack(t));
-      mine[name] = tracks.slice(0, 100);
+      mine[name] = tracks.slice(0, MAX_TRACKS);
       save(all);
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setTitle("📃 플레이리스트 저장")
         .setDescription(`**${name}** — ${mine[name].length}곡 저장 완료\n\`/플리 재생 ${name}\` 으로 불러올 수 있어요.`)] });
@@ -58,8 +59,8 @@ module.exports = {
       const list = (mine[name] = mine[name] || []);
       if (list.some((t) => t.uri === cur.info.uri))
         return interaction.reply({ content: `⚠️ **${cur.info.title}** 은(는) 이미 **${name}** 플리에 있어요.`, flags: 64 });
-      if (list.length >= 100)
-        return interaction.reply({ content: `⚠️ **${name}** 플리가 가득 찼어요. (최대 100곡)`, flags: 64 });
+      if (list.length >= MAX_TRACKS)
+        return interaction.reply({ content: `⚠️ **${name}** 플리가 가득 찼어요. (최대 ${MAX_TRACKS}곡)`, flags: 64 });
       list.push({ title: cur.info.title, uri: cur.info.uri, encoded: cur.encoded, info: cur.info, pluginInfo: cur.pluginInfo || {} });
       save(all);
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setTitle("📃 한 곡 추가")
