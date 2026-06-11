@@ -5,8 +5,8 @@ const { svgToPng, framesToGif, easeOutCubic } = require("./utils");
 
 const W = 520, H = 400;
 const PXS = 4; // 몬스터 픽셀 크기
-const HPX = 2.4; // 영웅 픽셀 크기 (32x41 스프라이트 → 77x98)
-const PXX = 78, PXY = 120; // 발이 218 그림자선에 닿게
+const HPX = 2.9; // 영웅 픽셀 크기 (32x29 스프라이트 → 93x84)
+const PXX = 78, PXY = 134; // 발이 218 그림자선에 닿게
 
 function mobPos(key) {
   const sz = px.mobSize(key, PXS);
