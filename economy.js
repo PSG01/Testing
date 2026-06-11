@@ -265,6 +265,7 @@ function weeklyBoard(limit = 10) {
 
 function leaderboard(limit = 10) {
   return Object.entries(data)
+    .filter(([id, u]) => !id.startsWith("__") && typeof u?.balance === "number") // __meta 등 내부 항목 제외
     .map(([id, u]) => ({ id, name: u.name, balance: u.balance, title: u.title || null }))
     .sort((a, b) => b.balance - a.balance)
     .slice(0, limit);
