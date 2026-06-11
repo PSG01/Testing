@@ -56,9 +56,10 @@ function claimDaily(id, name) {
     return { ok: false, remaining: DAILY_COOLDOWN - elapsed };
   }
   u.lastDaily = now;
-  u.balance += DAILY_AMOUNT;
+  const amount = DAILY_AMOUNT + (u.vip ? 200 : 0); // 💎 VIP 카드 보너스
+  u.balance += amount;
   save();
-  return { ok: true, amount: DAILY_AMOUNT, balance: u.balance };
+  return { ok: true, amount, balance: u.balance };
 }
 
 function claimBailout(id, name) {
@@ -81,10 +82,25 @@ function recordSpin(id, bet, win, game = "any") {
   u.totalWon += win;
   if (win > u.biggestWin) u.biggestWin = win;
   addWeekly(id, win - bet);
+  // 🍀 행운 부적 / 🛡️ 보험 자동 사용
+  let buff = null;
+  const inv = items(u);
+  if (win > 0 && inv.charm > 0) {
+    inv.charm--;
+    const bonus = Math.floor(win * 0.2);
+    u.balance += bonus;
+    buff = { type: "charm", bonus };
+  } else if (win === 0 && bet > 0 && inv.insurance > 0) {
+    inv.insurance--;
+    const refund = Math.floor(bet * 0.5);
+    u.balance += refund;
+    buff = { type: "insurance", refund };
+  }
   const keys = ["play_any", `play_${game}`];
   if (win > 0) keys.push("win_any", `win_${game}`);
   questEvent(id, keys, 1, false);
   save();
+  return buff;
 }
 
 // ── 일일 퀘스트 ───────────────────────────────────────────────────
@@ -226,10 +242,14 @@ function grindReady(id) {
 }
 function grindCommit(id, name, coins) {
   const u = getUser(id, name);
+  const inv = items(u);
+  let doubled = false;
+  if (inv.pickaxe > 0) { inv.pickaxe--; doubled = true; } // ⛏️ 황금 곡괭이: 보상 2배
   u.lastGrind = Date.now();
-  u.balance += Math.max(0, Math.floor(coins));
+  const earned = Math.max(0, Math.floor(coins * (doubled ? 2 : 1)));
+  u.balance += earned;
   save();
-  return u.balance;
+  return { balance: u.balance, earned, doubled };
 }
 
 function weeklyBoard(limit = 10) {
@@ -245,9 +265,56 @@ function weeklyBoard(limit = 10) {
 
 function leaderboard(limit = 10) {
   return Object.entries(data)
-    .map(([id, u]) => ({ id, name: u.name, balance: u.balance }))
+    .map(([id, u]) => ({ id, name: u.name, balance: u.balance, title: u.title || null }))
     .sort((a, b) => b.balance - a.balance)
     .slice(0, limit);
+}
+
+// ── 상점 ──────────────────────────────────────────────────────────
+const SHOP_ITEMS = [
+  { id: "charm", emoji: "🍀", label: "행운 부적", price: 500, desc: "다음 당첨 1회 상금 +20% (자동 사용)" },
+  { id: "insurance", emoji: "🛡️", label: "보험 증서", price: 400, desc: "다음 패배 1회 베팅 50% 환불 (자동 사용)" },
+  { id: "pickaxe", emoji: "⛏️", label: "황금 곡괭이", price: 800, desc: "다음 채굴 3회 보상 2배" },
+  { id: "vip", emoji: "💎", label: "VIP 카드", price: 5000, desc: "출석 보상 +200 (영구, 1회 구매)" },
+  { id: "title_rich", emoji: "🏷️", label: "칭호: 큰손", price: 2000, desc: "잔액/랭킹에 「💰큰손」 표시" },
+  { id: "title_king", emoji: "🏷️", label: "칭호: 도박왕", price: 3000, desc: "잔액/랭킹에 「🎲도박왕」 표시" },
+];
+const TITLES = { title_rich: "💰큰손", title_king: "🎲도박왕" };
+function items(u) {
+  if (!u.items) u.items = {};
+  return u.items;
+}
+function buyItem(id, name, itemId) {
+  const item = SHOP_ITEMS.find((i) => i.id === itemId);
+  if (!item) return { ok: false, reason: "unknown" };
+  const u = getUser(id, name);
+  const inv = items(u);
+  if (itemId === "vip" && u.vip) return { ok: false, reason: "owned" };
+  if (TITLES[itemId] && (u.titles || []).includes(itemId)) return { ok: false, reason: "owned" };
+  if (u.balance < item.price) return { ok: false, reason: "balance", balance: u.balance };
+  u.balance -= item.price;
+  if (itemId === "charm") inv.charm = (inv.charm || 0) + 1;
+  else if (itemId === "insurance") inv.insurance = (inv.insurance || 0) + 1;
+  else if (itemId === "pickaxe") inv.pickaxe = (inv.pickaxe || 0) + 3;
+  else if (itemId === "vip") u.vip = true;
+  else if (TITLES[itemId]) {
+    u.titles = u.titles || [];
+    u.titles.push(itemId);
+    u.title = TITLES[itemId]; // 구매 즉시 장착
+  }
+  save();
+  return { ok: true, item, balance: u.balance };
+}
+function inventoryText(id) {
+  const u = getUser(id);
+  const inv = items(u);
+  const parts = [];
+  if (inv.charm) parts.push(`🍀 부적 ×${inv.charm}`);
+  if (inv.insurance) parts.push(`🛡️ 보험 ×${inv.insurance}`);
+  if (inv.pickaxe) parts.push(`⛏️ 황금곡괭이 ${inv.pickaxe}회`);
+  if (u.vip) parts.push("💎 VIP");
+  if (u.title) parts.push(`칭호 ${u.title}`);
+  return parts.join(" · ") || "없음";
 }
 
 module.exports = {
@@ -270,4 +337,7 @@ module.exports = {
   questBoard,
   claimQuests,
   questEvent,
+  SHOP_ITEMS,
+  buyItem,
+  inventoryText,
 };

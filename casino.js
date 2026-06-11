@@ -136,6 +136,7 @@ const builders = [
   new SlashCommandBuilder().setName("출석").setDescription("매일 무료 코인을 받습니다"),
   new SlashCommandBuilder().setName("노가다").setDescription("광산에서 광물을 캐서 코인을 법니다 (5분 쿨) ⛏️"),
   new SlashCommandBuilder().setName("퀘스트").setDescription("오늘의 일일 퀘스트 3개와 보상을 확인합니다 📜"),
+  new SlashCommandBuilder().setName("상점").setDescription("코인으로 부적/곡괭이/VIP/칭호를 삽니다 🛒"),
   new SlashCommandBuilder()
     .setName("경마")
     .setDescription("우승마를 맞히면 x5.5! 25초간 모두 함께 베팅 🏇")
@@ -910,11 +911,12 @@ async function onCommand(interaction) {
       const u = economy.getUser(userId, name);
       const embed = new EmbedBuilder()
         .setColor(0x5865f2)
-        .setTitle(`${name} 님의 지갑`)
+        .setTitle(`${u.title ? u.title + " " : ""}${name} 님의 지갑`)
         .addFields(
           { name: "잔액", value: `**${u.balance}** ${COIN}`, inline: true },
           { name: "총 스핀", value: `${u.spins}회`, inline: true },
-          { name: "최고 획득", value: `${u.biggestWin} ${COIN}`, inline: true }
+          { name: "최고 획득", value: `${u.biggestWin} ${COIN}`, inline: true },
+          { name: "🎒 보유 아이템", value: economy.inventoryText(userId), inline: false }
         )
         .setFooter({ text: "재미용 가짜 코인입니다 (실제 돈·도박과 무관)" });
       return interaction.reply({ embeds: [embed] });
@@ -946,6 +948,9 @@ async function onCommand(interaction) {
     case "퀘스트": {
       return interaction.reply(questView(userId, interaction.user));
     }
+    case "상점": {
+      return interaction.reply(shopView(userId, interaction.user));
+    }
     case "파산": {
       const r = economy.claimBailout(userId, name);
       if (!r.ok && r.reason === "still_have")
@@ -957,7 +962,7 @@ async function onCommand(interaction) {
     case "랭킹": {
       const rows = economy.leaderboard(10);
       const wk = economy.weeklyBoard(10);
-      const all = rows.map((r, i) => `${["🥇","🥈","🥉"][i] || `${i + 1}.`} **${r.name}** — ${r.balance.toLocaleString()} ${COIN}`).join("\n") || "아직 없음";
+      const all = rows.map((r, i) => `${["🥇","🥈","🥉"][i] || `${i + 1}.`} **${r.title ? r.title + " " : ""}${r.name}** — ${r.balance.toLocaleString()} ${COIN}`).join("\n") || "아직 없음";
       const weekly = wk.rows.map((r, i) => `${["🥇","🥈","🥉"][i] || `${i + 1}.`} **${r.name}** — ${r.net >= 0 ? "+" : ""}${r.net.toLocaleString()} ${COIN}`).join("\n") || "이번 주 기록 없음";
       const embed = new EmbedBuilder()
         .setColor(0xf1c40f)
@@ -1062,8 +1067,9 @@ async function onMineButton(interaction) {
     components: [],
   });
   const { gif, finalPng, durationMs } = await grindGif.render({ ...ore, coins });
-  const balance = economy.grindCommit(interaction.user.id, interaction.user.username, coins);
+  const mined = economy.grindCommit(interaction.user.id, interaction.user.username, coins);
   economy.questEvent(interaction.user.id, ["play_mine"]);
+  const balance = mined.balance;
   const buildMineEmbed = (img) =>
     new EmbedBuilder()
       .setColor(ore.tier >= 4 ? 0xf1c40f : ore.tier >= 2 ? 0x2ecc71 : 0x95a5a6)
@@ -1072,7 +1078,7 @@ async function onMineButton(interaction) {
       .setImage(`attachment://${img}`)
       .addFields(
         { name: "발견", value: ore.label, inline: true },
-        { name: "획득", value: `+${coins.toLocaleString()} ${COIN}`, inline: true },
+        { name: "획득", value: `+${mined.earned.toLocaleString()} ${COIN}${mined.doubled ? " (⛏️황금 곡괭이 ×2!)" : ""}`, inline: true },
         { name: "👛 잔액", value: `**${balance.toLocaleString()}** ${COIN}`, inline: true }
       )
       .setFooter({ text: "다음 채굴은 5분 뒤에! ⛏️" });
@@ -1202,6 +1208,38 @@ async function onQuestButton(interaction) {
   });
 }
 
+// ── 상점 ───────────────────────────────────────────────────────────
+function shopView(userId, user) {
+  const u = economy.getUser(userId, user.username);
+  const lines = economy.SHOP_ITEMS.map((i) => `${i.emoji} **${i.label}** — ${i.price.toLocaleString()} ${COIN}\n└ ${i.desc}`).join("\n");
+  const embed = new EmbedBuilder()
+    .setColor(0xe67e22)
+    .setTitle("🛒 상점")
+    .setDescription(lines)
+    .addFields(
+      { name: "👛 내 잔액", value: `${u.balance.toLocaleString()} ${COIN}`, inline: true },
+      { name: "🎒 보유", value: economy.inventoryText(userId), inline: true }
+    )
+    .setFooter({ text: "버튼을 누른 사람의 코인으로 구매됩니다" });
+  const rows = [new ActionRowBuilder(), new ActionRowBuilder()];
+  economy.SHOP_ITEMS.forEach((i, idx) => {
+    rows[idx < 3 ? 0 : 1].addComponents(
+      new ButtonBuilder().setCustomId(`shop_buy_${i.id}`).setLabel(`${i.label} (${i.price})`).setEmoji(i.emoji).setStyle(ButtonStyle.Secondary)
+    );
+  });
+  return { embeds: [embed], components: rows };
+}
+async function onShopButton(interaction) {
+  const itemId = interaction.customId.replace("shop_buy_", "");
+  const r = economy.buyItem(interaction.user.id, interaction.user.username, itemId);
+  if (!r.ok) {
+    const msg = r.reason === "owned" ? "이미 보유 중인 아이템이에요!" : r.reason === "balance" ? `코인이 부족해요! (잔액 ${r.balance} ${COIN})` : "알 수 없는 아이템이에요.";
+    return interaction.reply({ content: `⚠️ ${msg}`, ephemeral: true });
+  }
+  await interaction.update(shopView(interaction.user.id, interaction.user)).catch(() => {});
+  return interaction.followUp({ content: `✅ ${r.item.emoji} **${r.item.label}** 구매 완료! (잔액 ${r.balance.toLocaleString()} ${COIN})`, ephemeral: true });
+}
+
 // ── 외부 노출 ──────────────────────────────────────────────────────
 async function handleCommand(interaction) {
   return onCommand(interaction);
@@ -1230,6 +1268,7 @@ async function handleButton(interaction) {
   if (id.startsWith("race_")) return (await onRaceButton(interaction), true);
   if (id.startsWith("mine_")) return (await onMineButton(interaction), true);
   if (id.startsWith("quest_")) return (await onQuestButton(interaction), true);
+  if (id.startsWith("shop_")) return (await onShopButton(interaction), true);
   return false;
 }
 

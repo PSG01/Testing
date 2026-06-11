@@ -11,17 +11,39 @@ const { msToTime } = require("./utils");
 const { getAllCharts } = require("./charts-source");
 
 // ── 음악 채널 설정 저장소 (guildId -> { channelId, messageId }) ─────
+// .env 의 MUSIC_CHANNELS 를 1순위로 사용 — 코드 파일을 통째로 교체해도
+// 토큰과 함께 .env 만 유지하면 /셋업 을 다시 할 필요가 없다.
 const FILE = path.join(__dirname, "data", "music-channels.json");
+const ENV_FILE = path.join(__dirname, ".env");
+const ENV_KEY = "MUSIC_CHANNELS";
 function load() {
   try {
-    return JSON.parse(fs.readFileSync(FILE, "utf8"));
+    if (process.env[ENV_KEY]) return JSON.parse(process.env[ENV_KEY]);
+  } catch {}
+  try {
+    return JSON.parse(fs.readFileSync(FILE, "utf8")); // 구버전(data/) 마이그레이션용
   } catch {
     return {};
   }
 }
 function persist(obj) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(FILE, JSON.stringify(obj, null, 2));
+  const json = JSON.stringify(obj);
+  process.env[ENV_KEY] = json;
+  // .env 의 MUSIC_CHANNELS 줄을 갱신(없으면 추가) — 다른 줄은 그대로 보존
+  try {
+    let txt = fs.existsSync(ENV_FILE) ? fs.readFileSync(ENV_FILE, "utf8") : "";
+    const line = `${ENV_KEY}='${json}'`;
+    if (new RegExp(`^${ENV_KEY}=`, "m").test(txt)) txt = txt.replace(new RegExp(`^${ENV_KEY}=.*$`, "m"), line);
+    else txt += (txt === "" || txt.endsWith("\n") ? "" : "\n") + line + "\n";
+    fs.writeFileSync(ENV_FILE, txt);
+  } catch (e) {
+    console.error("⚠️ .env 저장 실패(설정은 data/에 백업됨):", e?.message);
+  }
+  // data/ 에도 백업 유지
+  try {
+    fs.mkdirSync(path.dirname(FILE), { recursive: true });
+    fs.writeFileSync(FILE, JSON.stringify(obj, null, 2));
+  } catch {}
 }
 function getConfig(guildId) {
   return load()[guildId] || null;
