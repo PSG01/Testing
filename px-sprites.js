@@ -252,30 +252,40 @@ const GEAR = {
     ]),
   },
   mage: {
-    // 챙 넓은 마법사 모자, 시안색 눈
-    pal: { H: "#3a2a6b", C: "#6a4ad0", D: "#4a2f9a", B: "#2a1c5a", A: "#36e6ff", I: "#2aa8d8", v: "#8ae6ff" },
+    // 마젠타 큰 머리(비대칭 묶음+옆쓸림 앞머리+흘러내리는 머리채), 시안색 눈, 보라 로브
+    pal: { H: "#a03878", C: "#6a4ad0", D: "#4a2f9a", B: "#2a1c5a", A: "#36e6ff", I: "#2aa8d8", v: "#8ae6ff" },
     head: norm([
-      "................KiK",
-      "..............KKiHK",
-      "............KKiHHhK",
-      "..........KKHHHHhK",
-      "........KKHHAwAHhK",
-      "......KKHHHHHAHHhK",
-      "....KKHHHHHHHHHHhKKK",
-      "..KKHHHHHHHHHHHHHHHHKK",
-      ".KHHHHHHHHHHHHHHHHHHHhK",
-      "..KKhhhhhhhhhhhhhhhhKK",
-      "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-      ".........KHHHHHHHHHK",
-      ".........KHHHHHHHHhK",
-      ".........KHHHHHHHHhK",
-      "........KHHHHHHHHHHhK",
-      "........KHHHHHHHHHHhK",
-      "........KHHHHHHHHHHhK",
-      ".......KHHHHHHHHHHHHhK",
-      ".......KHHHHHHHHHHHHhK",
-      ".......KHAHAHAHAHAHAhK",
-      ".......KHHHHHHHHHHHHhK",
+      ".......KHHK",
+      "......KHiiHK",
+      "......KHiHHK",
+      ".......KKK",
+      "",
+      "",
+      "....KHK.............KHHK",
+      "...KHiHK......HHHHh...KHHHK",
+      "...KHiHK.......HHHh...KHHHK",
+      "...KHHhK..............KHHhK",
+      "...KHHhK..............KHHhK",
+      "...KHHhK..............KHHhK",
+      "...KHhhK..............KHhhK",
+      "...KHhK................KHhK",
+      "...KHhK................KHhK",
+      "....KhK................KhhK",
+      "....KhK................KhK",
+      ".....KK................KhK",
+      ".......................KhK",
+      ".......................KK",
+      "", "", "", "", "", "", "", "", "",
+      ".........KCCCCCCCCCK",
+      ".........KCCcCCCCCCK",
+      ".........KCCcCCCCCcK",
+      "........KCCCcCCCCCCcK",
+      "........KCCCcCCCCCCcK",
+      "........KCCCCcCCCCCcK",
+      ".......KCCCCCcCCCCCCcK",
+      ".......KCCCCCcCCCCCCcK",
+      ".......KAAAAAAAAAAAAAK",
+      ".......KCCCCCCCCCCCCcK",
       ".......KKKKKKKKKKKKKKK",
     ]),
     idle: pad([
@@ -744,11 +754,11 @@ function hero(classKey, x, y, px, pose = "idle", { flip = false, white = false }
   pal.l = tintWarm(pal.C, 0.32); pal.i = tintWarm(pal.H, 0.32);
   const body = pose === "atk" ? HUMAN_ATK : HUMAN_IDLE;
   const weapon = pose === "atk" ? gear.atk : gear.idle;
-  // EPX 2배 정밀화 후 절반 픽셀로 렌더 → 화면 크기 동일, 해상도 2배
-  // 그리는 순서: 몸 → 머리 장식(투구/후드) → 무기
-  let s = drawGrid(grid2x(body), pal, x, y, px / 2, { flip, white });
-  if (gear.head) s += drawGrid(grid2x(gear.head), pal, x, y, px / 2, { flip, white });
-  s += drawGrid(grid2x(weapon), pal, x, y, px / 2, { flip, white });
+  // 영웅은 EPX 없이 원본 도트 그대로 — 각진 픽셀 클러스터의 또렷한 맛을 유지
+  // 그리는 순서: 몸 → 머리 장식(투구/후드/머리카락) → 무기
+  let s = drawGrid(body, pal, x, y, px, { flip, white });
+  if (gear.head) s += drawGrid(gear.head, pal, x, y, px, { flip, white });
+  s += drawGrid(weapon, pal, x, y, px, { flip, white });
   return `<g shape-rendering="crispEdges">${s}</g>`;
 }
 
