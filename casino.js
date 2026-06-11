@@ -37,6 +37,31 @@ const MIN_BET = 10;
 const MAX_BET = 10000;
 const COIN = "🪙";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ── 동시 진행 방지 + 오류 시 환불 보장 ─────────────────────────────
+// 연출(GIF) 중 버튼 연타로 게임이 겹치는 것을 막고,
+// 정산 전에 오류가 나면 베팅을 자동 환불한다.
+const inFlight = new Set();
+async function guardedRun(interaction, bet, body) {
+  const userId = interaction.user.id;
+  if (inFlight.has(userId))
+    return interaction.editReply({ content: "⚠️ 이전 게임이 끝나기를 기다려 주세요!", embeds: [], components: [], files: [] }).catch(() => {});
+  inFlight.add(userId);
+  let settled = false;
+  try {
+    await body(() => { settled = true; });
+  } catch (e) {
+    console.error("게임 처리 오류:", e?.message || e);
+    if (!settled) {
+      economy.addBalance(userId, bet);
+      await interaction.editReply({ content: `⚠️ 오류가 발생해 베팅 ${bet.toLocaleString()} ${COIN} 을 환불했어요.`, embeds: [], components: [], files: [] }).catch(() => {});
+    } else {
+      await interaction.editReply({ content: "⚠️ 결과 표시 중 오류가 났지만 정산은 완료됐어요. `/잔액` 으로 확인하세요.", embeds: [], components: [], files: [] }).catch(() => {});
+    }
+  } finally {
+    inFlight.delete(userId);
+  }
+}
 const fmt = (ms) => {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
@@ -107,6 +132,7 @@ const builders = [
     .addIntegerOption((o) => o.setName("베팅").setDescription(`베팅할 코인 (${MIN_BET}~${MAX_BET})`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true)),
   new SlashCommandBuilder().setName("잔액").setDescription("내 코인 잔액과 기록을 봅니다"),
   new SlashCommandBuilder().setName("출석").setDescription("매일 무료 코인을 받습니다"),
+  new SlashCommandBuilder().setName("노가다").setDescription("30분마다 일해서 코인을 법니다 ⛏️"),
   new SlashCommandBuilder().setName("파산").setDescription("코인이 0일 때 구제 코인을 받습니다"),
   new SlashCommandBuilder().setName("랭킹").setDescription("코인 보유 랭킹을 봅니다"),
   new SlashCommandBuilder().setName("도움").setDescription("봇 사용법과 배당표를 봅니다"),
@@ -168,6 +194,7 @@ async function runSpin(interaction, bet) {
   if (u.balance < bet)
     return interaction.editReply({ content: `⚠️ 코인이 부족해요! (잔액 ${u.balance} ${COIN}) — \`/출석\` 또는 \`/파산\``, embeds: [], components: [], files: [] });
 
+  return guardedRun(interaction, bet, async (markSettled) => {
   economy.addBalance(userId, -bet);
   economy.feedJackpot(bet);
   const final = slot.spin();
@@ -184,6 +211,7 @@ async function runSpin(interaction, bet) {
   if (result.jackpot) jackpotBonus = economy.claimJackpot(userId); // 777 → 잭팟 풀 전액!
   if (win > 0) economy.addBalance(userId, win);
   economy.recordSpin(userId, bet, win);
+  markSettled();
   const balance = economy.getUser(userId).balance;
   const net = win - bet;
 
@@ -203,6 +231,7 @@ async function runSpin(interaction, bet) {
 
   await interaction.editReply({ embeds: [buildEmbed("slot.gif")], files: [new AttachmentBuilder(gif, { name: "slot.gif" })], components: [buttons(bet)] });
   freezeAfter(() => interaction.fetchReply(), durationMs, finalPng, "slot.png", buildEmbed);
+  });
 }
 
 // ── 캐스케이드(연쇄) 슬롯 ──────────────────────────────────────────
@@ -280,6 +309,7 @@ async function runCascade(interaction, bet) {
   if (u.balance < bet)
     return interaction.editReply({ content: `⚠️ 코인이 부족해요! (잔액 ${u.balance} ${COIN}) — \`/출석\` 또는 \`/파산\``, embeds: [], components: [], files: [] });
 
+  return guardedRun(interaction, bet, async (markSettled) => {
   economy.addBalance(userId, -bet);
   economy.feedJackpot(bet);
   const play = cascade.play(bet);
@@ -295,6 +325,7 @@ async function runCascade(interaction, bet) {
   const { gif, finalPng, durationMs } = await cascadeGif.render(play, 1);
 
   if (totalWin > 0) economy.addBalance(userId, totalWin);
+  markSettled(); // 본 스핀 정산 완료 (이후 오류여도 베팅 환불 없음)
   let grandWin = totalWin;
   const bal = economy.getUser(userId).balance;
   const net = totalWin - bet;
@@ -341,6 +372,7 @@ async function runCascade(interaction, bet) {
   }
 
   economy.recordSpin(userId, bet, grandWin);
+  });
 }
 
 // ── 룰렛 ───────────────────────────────────────────────────────────
@@ -363,6 +395,7 @@ async function runRoulette(interaction, bet, type, pick) {
   if (u.balance < bet)
     return interaction.editReply({ content: `⚠️ 코인이 부족해요! (잔액 ${u.balance} ${COIN}) — \`/출석\` 또는 \`/파산\``, embeds: [], components: [], files: [] });
 
+  return guardedRun(interaction, bet, async (markSettled) => {
   economy.addBalance(userId, -bet);
   economy.feedJackpot(bet);
   const result = roulette.spin();
@@ -379,6 +412,7 @@ async function runRoulette(interaction, bet, type, pick) {
 
   if (win > 0) economy.addBalance(userId, win);
   economy.recordSpin(userId, bet, win);
+  markSettled();
   const bal = economy.getUser(userId).balance;
   const net = win - bet;
   const typeLabel = type === "number" ? `숫자 ${pick} (x36)` : roulette.TYPE_LABEL[type] + " (x2)";
@@ -396,6 +430,7 @@ async function runRoulette(interaction, bet, type, pick) {
       .setFooter({ text: "재미용 가짜 코인입니다 (실제 돈·도박과 무관)" });
   await interaction.editReply({ embeds: [buildRlEmbed("roulette.gif")], files: [new AttachmentBuilder(gif, { name: "roulette.gif" })], components: [rlButtons(bet, type, pick)] });
   freezeAfter(() => interaction.fetchReply(), durationMs, finalPng, "roulette.png", buildRlEmbed);
+  });
 }
 
 async function onRlButton(interaction) {
@@ -470,7 +505,16 @@ async function onDuelButton(interaction) {
 
   const dice = [1, 1, 1, 1].map(() => 1 + Math.floor(Math.random() * 6));
   const nameA = a.name || "신청자", nameB = b.name || "상대";
-  const { gif, finalPng, durationMs } = await diceGif.render(nameA, nameB, dice);
+  let gif, finalPng, durationMs;
+  try {
+    ({ gif, finalPng, durationMs } = await diceGif.render(nameA, nameB, dice));
+  } catch (e) {
+    // 연출 실패 → 양쪽 판돈 환불
+    console.error("주사위 GIF 오류:", e?.message || e);
+    economy.addBalance(challengerId, pot);
+    economy.addBalance(targetId, pot);
+    return interaction.editReply({ content: "⚠️ 오류가 발생해 양쪽 판돈을 환불했어요.", embeds: [], components: [] }).catch(() => {});
+  }
   const sumA = dice[0] + dice[1], sumB = dice[2] + dice[3];
 
   let resultLine;
@@ -614,6 +658,7 @@ function bjButtons(bet, done) {
 }
 
 async function bjFinish(interaction, game) {
+  if (game.deck.length < 12) game.deck.push(...blackjack.start().deck); // 덱 고갈 방지
   blackjack.dealerPlay(game.deck, game.dealer);
   const res = blackjack.settle(game.player, game.dealer);
   const win = Math.floor(game.bet * res.mult);
@@ -627,6 +672,8 @@ async function bjFinish(interaction, game) {
 async function runBlackjack(interaction, bet) {
   const userId = interaction.user.id;
   const u = economy.getUser(userId, interaction.user.username);
+  if (bjGames.has(userId))
+    return interaction.editReply({ content: "⚠️ 이미 진행 중인 블랙잭이 있어요! 히트/스탠드로 먼저 끝내주세요.", embeds: [], components: [] });
   if (u.balance < bet)
     return interaction.editReply({ content: `⚠️ 코인이 부족해요! (잔액 ${u.balance} ${COIN}) — \`/출석\` 또는 \`/파산\``, embeds: [], components: [] });
 
@@ -663,6 +710,7 @@ async function onBjButton(interaction) {
   if (!game) return interaction.reply({ content: "진행 중인 블랙잭 게임이 없어요. `/블랙잭` 으로 시작하세요.", ephemeral: true });
 
   if (action === "hit") {
+    if (game.deck.length === 0) game.deck.push(...blackjack.start().deck); // 덱 고갈 방지
     game.player.push(game.deck.pop());
     if (blackjack.handValue(game.player) > 21) {
       await interaction.deferUpdate();
@@ -720,6 +768,8 @@ function hlButtons(game, done) {
 async function runHighlow(interaction, bet) {
   const userId = interaction.user.id;
   const u = economy.getUser(userId, interaction.user.username);
+  if (hlGames.has(userId))
+    return interaction.editReply({ content: "⚠️ 이미 진행 중인 하이로우가 있어요! 캐시아웃하거나 끝내고 다시 시작하세요.", embeds: [], components: [] });
   if (u.balance < bet)
     return interaction.editReply({ content: `⚠️ 코인이 부족해요! (잔액 ${u.balance} ${COIN}) — \`/출석\` 또는 \`/파산\``, embeds: [], components: [] });
 
@@ -866,6 +916,12 @@ async function onCommand(interaction) {
       if (!r.ok)
         return interaction.reply({ content: `⏳ 다음 출석까지 **${fmt(r.remaining)}** 남았어요.`, ephemeral: true });
       return interaction.reply(`✅ 출석 완료! **+${r.amount}** ${COIN} (잔액 ${r.balance} ${COIN})`);
+    }
+    case "노가다": {
+      const r = economy.grindWork(userId, name);
+      if (!r.ok)
+        return interaction.reply({ content: `⏳ 너무 지쳤어요... **${fmt(r.remaining)}** 뒤에 다시 일할 수 있어요.`, ephemeral: true });
+      return interaction.reply(`⛏️ 열심히 일해서 **+${r.coins}** ${COIN} 벌었어요! (잔액 ${r.balance} ${COIN})`);
     }
     case "파산": {
       const r = economy.claimBailout(userId, name);
