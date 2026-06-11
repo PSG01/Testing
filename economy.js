@@ -133,17 +133,19 @@ function addWeekly(id, net) {
   if (!m.weekly || m.weekly.key !== wk) m.weekly = { key: wk, net: {} };
   m.weekly.net[id] = (m.weekly.net[id] || 0) + net;
 }
-// ── 노가다 (30분 쿨, 캐릭터 불필요) ───────────────────────────────
-const GRIND_CD = 30 * 60 * 1000;
-function grindWork(id, name) {
+// ── 노가다 (광산 캐기, 5분 쿨) ────────────────────────────────────
+const GRIND_CD = 5 * 60 * 1000;
+function grindReady(id) {
+  const u = getUser(id);
+  const remaining = GRIND_CD - (Date.now() - (u.lastGrind || 0));
+  return remaining <= 0 ? { ok: true } : { ok: false, remaining };
+}
+function grindCommit(id, name, coins) {
   const u = getUser(id, name);
-  const now = Date.now();
-  if (now - (u.lastGrind || 0) < GRIND_CD) return { ok: false, remaining: GRIND_CD - (now - u.lastGrind) };
-  u.lastGrind = now;
-  const coins = 60 + Math.floor(Math.random() * 60);
-  u.balance += coins;
+  u.lastGrind = Date.now();
+  u.balance += Math.max(0, Math.floor(coins));
   save();
-  return { ok: true, coins, balance: u.balance };
+  return u.balance;
 }
 
 function weeklyBoard(limit = 10) {
@@ -179,5 +181,6 @@ module.exports = {
   jackpotAmount,
   claimJackpot,
   weeklyBoard,
-  grindWork,
+  grindReady,
+  grindCommit,
 };

@@ -15,6 +15,8 @@ const rouletteGif = require("./roulette-gif");
 const slotGif = require("./slot-gif");
 const cardRender = require("./card-render");
 const diceGif = require("./dice-gif");
+const grindGif = require("./grind-gif");
+const raceGif = require("./race-gif");
 
 // GIF 재생이 끝나면 마지막 장면 PNG로 교체(나중에 채팅을 다시 봐도 재생 안 되고 사진처럼 고정)
 function freezeAfter(getMessage, durationMs, finalPng, pngName, rebuildEmbed) {
@@ -132,7 +134,12 @@ const builders = [
     .addIntegerOption((o) => o.setName("베팅").setDescription(`베팅할 코인 (${MIN_BET}~${MAX_BET})`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true)),
   new SlashCommandBuilder().setName("잔액").setDescription("내 코인 잔액과 기록을 봅니다"),
   new SlashCommandBuilder().setName("출석").setDescription("매일 무료 코인을 받습니다"),
-  new SlashCommandBuilder().setName("노가다").setDescription("30분마다 일해서 코인을 법니다 ⛏️"),
+  new SlashCommandBuilder().setName("노가다").setDescription("광산에서 광물을 캐서 코인을 법니다 (5분 쿨) ⛏️"),
+  new SlashCommandBuilder()
+    .setName("경마")
+    .setDescription("우승마를 맞히면 x5.5! 25초간 모두 함께 베팅 🏇")
+    .addIntegerOption((o) => o.setName("말").setDescription("베팅할 말 번호 (1~6)").setMinValue(1).setMaxValue(6).setRequired(true))
+    .addIntegerOption((o) => o.setName("베팅").setDescription(`베팅할 코인 (${MIN_BET}~${MAX_BET})`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true)),
   new SlashCommandBuilder().setName("파산").setDescription("코인이 0일 때 구제 코인을 받습니다"),
   new SlashCommandBuilder().setName("랭킹").setDescription("코인 보유 랭킹을 봅니다"),
   new SlashCommandBuilder().setName("도움").setDescription("봇 사용법과 배당표를 봅니다"),
@@ -918,10 +925,22 @@ async function onCommand(interaction) {
       return interaction.reply(`✅ 출석 완료! **+${r.amount}** ${COIN} (잔액 ${r.balance} ${COIN})`);
     }
     case "노가다": {
-      const r = economy.grindWork(userId, name);
+      const r = economy.grindReady(userId);
       if (!r.ok)
-        return interaction.reply({ content: `⏳ 너무 지쳤어요... **${fmt(r.remaining)}** 뒤에 다시 일할 수 있어요.`, ephemeral: true });
-      return interaction.reply(`⛏️ 열심히 일해서 **+${r.coins}** ${COIN} 벌었어요! (잔액 ${r.balance} ${COIN})`);
+        return interaction.reply({ content: `⏳ 곡괭이 손질 중... **${fmt(r.remaining)}** 뒤에 다시 캘 수 있어요.`, ephemeral: true });
+      return interaction.reply({
+        embeds: [new EmbedBuilder()
+          .setColor(0x8a6444)
+          .setAuthor(authorTag(interaction.user))
+          .setTitle("⛏️ 광산 도착!")
+          .setDescription("어느 광맥을 캘까요? 어디서 뭐가 나올지는 운!\n`잡초 < 돌 < 철 < 은 < 금 < 💎다이아`")],
+        components: [mineButtons()],
+      });
+    }
+    case "경마": {
+      const horse = interaction.options.getInteger("말") - 1;
+      const raceBet = interaction.options.getInteger("베팅");
+      return runRaceJoin(interaction, horse, raceBet);
     }
     case "파산": {
       const r = economy.claimBailout(userId, name);
@@ -1008,12 +1027,158 @@ async function onCasButton(interaction) {
 }
 
 
+// ── 노가다: 광산 캐기 미니게임 ─────────────────────────────────────
+const ORES = [
+  { label: "잡초...", color: "#7a9a4a", tier: 0, min: 8, max: 18, p: 0.25 },
+  { label: "돌멩이", color: "#b0b0ba", tier: 1, min: 30, max: 50, p: 0.30 },
+  { label: "철광석", color: "#aab8c8", tier: 2, min: 60, max: 90, p: 0.20 },
+  { label: "은광석", color: "#dce4ee", tier: 3, min: 100, max: 150, p: 0.15 },
+  { label: "금광석", color: "#ffd23a", tier: 4, min: 180, max: 280, p: 0.08 },
+  { label: "💎 다이아몬드", color: "#36e6ff", tier: 5, min: 500, max: 800, p: 0.02 },
+];
+function rollOre() {
+  let roll = Math.random();
+  for (const o of ORES) { if (roll < o.p) return o; roll -= o.p; }
+  return ORES[0];
+}
+function mineButtons(disabled = false) {
+  const names = ["왼쪽 광맥", "가운데 광맥", "오른쪽 광맥"];
+  return new ActionRowBuilder().addComponents(
+    ...names.map((n, i) => new ButtonBuilder().setCustomId(`mine_dig_${i}`).setLabel(n).setEmoji("⛏️").setStyle(ButtonStyle.Secondary).setDisabled(disabled))
+  );
+}
+async function onMineButton(interaction) {
+  const r = economy.grindReady(interaction.user.id);
+  if (!r.ok) return interaction.reply({ content: `⏳ 곡괭이 손질 중... **${fmt(r.remaining)}** 뒤에 다시 캘 수 있어요.`, ephemeral: true });
+  await interaction.deferUpdate();
+  const ore = rollOre();
+  const coins = ore.min + Math.floor(Math.random() * (ore.max - ore.min + 1));
+  await interaction.editReply({
+    embeds: [new EmbedBuilder().setColor(0x8a6444).setAuthor(authorTag(interaction.user)).setTitle("⛏️ 캐는 중...").setDescription("깡! 깡! 깡!")],
+    components: [],
+  });
+  const { gif, finalPng, durationMs } = await grindGif.render({ ...ore, coins });
+  const balance = economy.grindCommit(interaction.user.id, interaction.user.username, coins);
+  const buildMineEmbed = (img) =>
+    new EmbedBuilder()
+      .setColor(ore.tier >= 4 ? 0xf1c40f : ore.tier >= 2 ? 0x2ecc71 : 0x95a5a6)
+      .setAuthor(authorTag(interaction.user))
+      .setTitle(ore.tier >= 5 ? "💎✨ 대박!! ✨💎" : ore.tier >= 4 ? "✨ 금이다! ✨" : "⛏️ 채굴 완료")
+      .setImage(`attachment://${img}`)
+      .addFields(
+        { name: "발견", value: ore.label, inline: true },
+        { name: "획득", value: `+${coins.toLocaleString()} ${COIN}`, inline: true },
+        { name: "👛 잔액", value: `**${balance.toLocaleString()}** ${COIN}`, inline: true }
+      )
+      .setFooter({ text: "다음 채굴은 5분 뒤에! ⛏️" });
+  await interaction.editReply({ embeds: [buildMineEmbed("mine.gif")], files: [new AttachmentBuilder(gif, { name: "mine.gif" })], components: [] });
+  freezeAfter(() => interaction.fetchReply(), durationMs, finalPng, "mine.png", buildMineEmbed);
+}
+
+// ── 경마 (채널 단위 합동 베팅 → 25초 뒤 출발, 싱글도 가능) ─────────
+const races = new Map(); // channelId → { bets: Map<userId,{horse,bet,name}>, msg, started }
+const RACE_WAIT_MS = 25_000;
+const RACE_MULT = 5.5;
+const HORSE_NAMES = ["🔴 1번 적토마", "🟠 2번 불꽃", "🟡 3번 황금", "🟢 4번 초원", "🔵 5번 파도", "🟣 6번 보라"];
+
+function raceEmbed(race, secsLeft) {
+  const lines = [...race.bets.values()]
+    .map((b) => `• **${b.name}** → ${HORSE_NAMES[b.horse]} · ${b.bet.toLocaleString()} ${COIN}`)
+    .join("\n") || "*아직 베팅 없음*";
+  return new EmbedBuilder()
+    .setColor(0x2ecc71)
+    .setTitle("🏇 경마 — 베팅 받는 중!")
+    .setDescription(`\`/경마 말:<1~6> 베팅:<코인>\` 으로 누구나 참가!\n적중 시 **x${RACE_MULT}** 배당 · **${secsLeft}초** 뒤 출발 🔫\n\n${lines}`)
+    .setFooter({ text: "재미용 가짜 코인입니다 (실제 돈·도박과 무관)" });
+}
+
+async function runRaceJoin(interaction, horse, bet) {
+  const userId = interaction.user.id;
+  const u = economy.getUser(userId, interaction.user.username);
+  let race = races.get(interaction.channelId);
+  if (race?.started) return interaction.reply({ content: "⚠️ 이미 출발한 경주예요! 다음 경주를 기다려주세요.", ephemeral: true });
+  if (race?.bets.has(userId)) return interaction.reply({ content: "⚠️ 이미 이번 경주에 베팅했어요!", ephemeral: true });
+  if (u.balance < bet)
+    return interaction.reply({ content: `⚠️ 코인이 부족해요! (잔액 ${u.balance} ${COIN}) — \`/출석\` \`/노가다\``, ephemeral: true });
+
+  economy.addBalance(userId, -bet);
+  economy.feedJackpot(bet);
+  const entry = { horse, bet, name: u.name || interaction.user.username };
+
+  if (!race) {
+    race = { bets: new Map([[userId, entry]]), msg: null, started: false };
+    races.set(interaction.channelId, race);
+    await interaction.reply({ embeds: [raceEmbed(race, RACE_WAIT_MS / 1000)] });
+    race.msg = await interaction.fetchReply().catch(() => null);
+    setTimeout(() => { if (!race.started) race.msg?.edit({ embeds: [raceEmbed(race, 10)] }).catch(() => {}); }, RACE_WAIT_MS - 10_000);
+    setTimeout(() => startRace(interaction.channelId), RACE_WAIT_MS);
+  } else {
+    race.bets.set(userId, entry);
+    race.msg?.edit({ embeds: [raceEmbed(race, "곧 출발,")] }).catch(() => {});
+    await interaction.reply({ content: `✅ ${HORSE_NAMES[horse]} 에 **${bet.toLocaleString()}** ${COIN} 베팅 완료!`, ephemeral: true });
+  }
+}
+
+async function startRace(channelId) {
+  const race = races.get(channelId);
+  if (!race || race.started) return;
+  race.started = true;
+  try {
+    const winner = Math.floor(Math.random() * 6);
+    await race.msg?.edit({ embeds: [new EmbedBuilder().setColor(0xf1c40f).setTitle("🏇 출발!").setDescription("경주마들이 트랙을 질주합니다... 🔫")] }).catch(() => {});
+    const { gif, finalPng, durationMs } = await raceGif.render(winner);
+    const lines = [];
+    for (const [uid, b] of race.bets) {
+      if (b.horse === winner) {
+        const win = Math.floor(b.bet * RACE_MULT);
+        economy.addBalance(uid, win);
+        economy.recordSpin(uid, b.bet, win);
+        lines.push(`🏆 **${b.name}**  +${win.toLocaleString()} ${COIN}`);
+      } else {
+        economy.recordSpin(uid, b.bet, 0);
+        lines.push(`💸 ${b.name}  -${b.bet.toLocaleString()} ${COIN}`);
+      }
+    }
+    const buildRaceEmbed = (img) =>
+      new EmbedBuilder()
+        .setColor(0xffd770)
+        .setTitle(`🏇 ${HORSE_NAMES[winner]} 우승!`)
+        .setImage(`attachment://${img}`)
+        .setDescription(lines.join("\n") || "*베팅자 없음*")
+        .setFooter({ text: "재미용 가짜 코인입니다 (실제 돈·도박과 무관)" });
+    const msg = await race.msg.edit({ embeds: [buildRaceEmbed("race.gif")], files: [new AttachmentBuilder(gif, { name: "race.gif" })] });
+    freezeAfter(() => Promise.resolve(msg), durationMs, finalPng, "race.png", buildRaceEmbed);
+  } catch (e) {
+    console.error("경마 오류:", e?.message || e);
+    for (const [uid, b] of race.bets) economy.addBalance(uid, b.bet); // 전원 환불
+    race.msg?.edit({ content: "⚠️ 오류로 경주가 취소되어 전원 환불되었습니다.", embeds: [], files: [] }).catch(() => {});
+  } finally {
+    races.delete(channelId);
+  }
+}
+
+async function onRaceButton(interaction) {
+  return interaction.reply({ content: "참가 방법: `/경마 말:<1~6> 베팅:<코인>`", ephemeral: true });
+}
+
 // ── 외부 노출 ──────────────────────────────────────────────────────
 async function handleCommand(interaction) {
   return onCommand(interaction);
 }
+// 게임 패널 버튼은 그 게임을 시작한 본인만 사용 가능 (남의 결과 화면을 덮어쓰는 버그 방지)
+const OWNED_PREFIX = ["slot_", "cas_", "bj_", "hl_", "rl_", "crash_"];
+function panelOwnerId(interaction) {
+  return interaction.message?.interactionMetadata?.user?.id ?? interaction.message?.interaction?.user?.id ?? null;
+}
 async function handleButton(interaction) {
   const id = interaction.customId;
+  if (OWNED_PREFIX.some((p) => id.startsWith(p))) {
+    const owner = panelOwnerId(interaction);
+    if (owner && owner !== interaction.user.id) {
+      await interaction.reply({ content: `⚠️ 이 게임 패널은 <@${owner}> 님의 것이에요. 본인 명령(\`/슬롯\` 등)으로 시작해주세요!`, ephemeral: true });
+      return true;
+    }
+  }
   if (id.startsWith("slot_")) return (await onButton(interaction), true);
   if (id.startsWith("cas_")) return (await onCasButton(interaction), true);
   if (id.startsWith("bj_")) return (await onBjButton(interaction), true);
@@ -1021,6 +1186,8 @@ async function handleButton(interaction) {
   if (id.startsWith("rl_")) return (await onRlButton(interaction), true);
   if (id.startsWith("duel_")) return (await onDuelButton(interaction), true);
   if (id.startsWith("crash_")) return (await onCrashButton(interaction), true);
+  if (id.startsWith("race_")) return (await onRaceButton(interaction), true);
+  if (id.startsWith("mine_")) return (await onMineButton(interaction), true);
   return false;
 }
 
