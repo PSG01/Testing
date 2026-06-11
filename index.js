@@ -29,7 +29,7 @@ const rpg = require("./sts-commands");
 
 const MUSIC_CMDS = new Set([
   "플리",
-  "재생", "스킵", "일시정지", "다시재생", "정지", "재생목록", "재생정보", "볼륨", "반복",
+  "재생", "스킵", "일시정지", "다시재생", "정지", "재생목록", "재생정보", "볼륨", "반복", "이동",
 ]);
 
 // ── 클라이언트 ─────────────────────────────────────────────────────
@@ -98,38 +98,67 @@ client.on("raw", (d) => client.lavalink.sendRawData(d));
 
 // ── 고정 패널 갱신 ─────────────────────────────────────────────────
 const panelMessages = new Map();
-const panelTimers = new Map();
 
 async function getPanelMessage(guild) {
   const cfg = getConfig(guild.id);
   if (!cfg) return null;
-  if (panelMessages.has(guild.id)) return panelMessages.get(guild.id);
+  // 캐시가 현재 설정과 일치할 때만 사용 (셋업 재실행/패널 재생성 시 옛 메시지 무효화)
+  const cached = panelMessages.get(guild.id);
+  if (cached && cached.id === cfg.messageId && cached.channelId === cfg.channelId) return cached;
+  panelMessages.delete(guild.id);
   const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
   const msg = ch ? await ch.messages.fetch(cfg.messageId).catch(() => null) : null;
   if (msg) panelMessages.set(guild.id, msg);
   return msg;
 }
+
+// 패널을 채널 맨 아래에 새로 띄움 (기존 패널은 삭제) — 설정/캐시 갱신 포함
+async function recreatePanel(guild) {
+  const cfg = getConfig(guild.id);
+  if (!cfg) return null;
+  const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
+  if (!ch) return null;
+  const old = await ch.messages.fetch(cfg.messageId).catch(() => null);
+  if (old) await old.delete().catch(() => {});
+  const msg = await ch.send(buildView(client.lavalink.getPlayer(guild.id))).catch(() => null);
+  if (msg) {
+    setConfig(guild.id, cfg.channelId, msg.id);
+    panelMessages.set(guild.id, msg);
+  }
+  return msg;
+}
+
 async function refreshPanel(guildId) {
   const guild = client.guilds.cache.get(guildId);
   if (!guild || !getConfig(guildId)) return;
   const msg = await getPanelMessage(guild);
-  if (!msg) return;
+  if (!msg) return recreatePanel(guild); // 패널이 사라졌으면 재생성
   const player = client.lavalink.getPlayer(guildId);
   try {
     await msg.edit(buildView(player));
   } catch (e) {
+    if (e?.code === 10008) return recreatePanel(guild); // Unknown Message → 재생성
     console.error("패널 갱신 실패:", e?.message);
   }
 }
-function startTimer(guildId) {
-  stopTimer(guildId);
-  panelTimers.set(guildId, setInterval(() => refreshPanel(guildId), 10_000));
+
+// 패널이 채널 맨 아래 메시지가 되도록 보장 (다른 메시지가 쌓이면 다시 내려 붙임)
+async function ensurePanelBottom(guild) {
+  const cfg = getConfig(guild.id);
+  if (!cfg) return;
+  const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
+  if (!ch) return;
+  if (ch.lastMessageId && ch.lastMessageId !== cfg.messageId) await recreatePanel(guild);
+  else await refreshPanel(guild.id);
 }
-function stopTimer(guildId) {
-  const t = panelTimers.get(guildId);
-  if (t) clearInterval(t);
-  panelTimers.delete(guildId);
-}
+
+// 진행바 등 주기 갱신 — 전역 단일 타이머 (재시작/이벤트 누락에도 견고)
+setInterval(() => {
+  for (const guildId of Object.keys(getAll())) {
+    const p = client.lavalink?.getPlayer?.(guildId);
+    if (p?.queue?.current && !p.paused) refreshPanel(guildId).catch(() => {});
+  }
+}, 8000);
 
 // ── Lavalink 이벤트 ────────────────────────────────────────────────
 client.lavalink.nodeManager
@@ -138,19 +167,17 @@ client.lavalink.nodeManager
 
 client.lavalink.on("trackStart", async (player) => {
   if (getConfig(player.guildId)) {
-    await refreshPanel(player.guildId);
-    startTimer(player.guildId);
+    const guild = client.guilds.cache.get(player.guildId);
+    if (guild) await ensurePanelBottom(guild); // 곡 시작 시 패널을 맨 아래로 + 즉시 갱신
   } else {
     client.channels.cache.get(player.textChannelId)?.send(buildView(player)).catch(() => {});
   }
 });
 client.lavalink.on("queueEnd", async (player) => {
-  stopTimer(player.guildId);
   if (getConfig(player.guildId)) await refreshPanel(player.guildId);
   else client.channels.cache.get(player.textChannelId)?.send("⏹️ 재생 목록의 노래를 모두 들었어요.").catch(() => {});
 });
 client.lavalink.on("playerDestroy", async (player) => {
-  stopTimer(player.guildId);
   await refreshPanel(player.guildId);
 });
 
@@ -458,7 +485,9 @@ client.on("messageCreate", async (message) => {
     query,
     requester: message.author,
   });
-  return notify(r.ok ? (r.playlist ? `📃 플레이리스트 ${r.count}곡 추가!` : `➕ ${r.title}`) : `❌ ${r.msg}`);
+  await notify(r.ok ? (r.playlist ? `📃 플레이리스트 ${r.count}곡 추가!` : `➕ ${r.title}`) : `❌ ${r.msg}`);
+  // 대기곡 추가 등 변경사항 반영 + 패널을 맨 아래로 유지
+  return ensurePanelBottom(message.guild);
 });
 
 // ── 새 서버에 초대되면 그 서버에 명령어 즉시 등록 ─────────────────

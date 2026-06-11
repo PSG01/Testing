@@ -55,13 +55,14 @@ function trim(str, n) {
 }
 function progressBar(position, duration, size = 18) {
   if (!duration || duration <= 0) return "🔴 라이브";
-  const ratio = Math.min(1, Math.max(0, position / duration));
+  const pos = Math.min(Math.max(0, position), duration); // 로컬 보간이 곡 길이를 넘지 않게
+  const ratio = pos / duration;
   const filled = Math.round(ratio * size);
   return (
     "━".repeat(filled) +
     "🔘" +
     "━".repeat(Math.max(0, size - filled)) +
-    `\n\`${msToTime(position)} / ${msToTime(duration)}\``
+    `\n\`${msToTime(pos)} / ${msToTime(duration)}\``
   );
 }
 function btn(id, emoji, style, disabled, label) {
