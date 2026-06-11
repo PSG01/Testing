@@ -1,11 +1,10 @@
 // ── 던전 전투 렌더러 v2 (도트/픽셀 스타일) ────────────────────────
-const sharp = require("sharp");
 const px = require("./px-sprites");
+const { svgToPng, framesToGif, easeOutCubic } = require("./utils");
 
 const W = 480, H = 320;
-const PXS = 5; // 픽셀 크기
-const PXX = 70, PXY = 130;   // 플레이어 스프라이트 좌상단
-const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const PXS = 4; // 픽셀 크기 (20x24 스프라이트 → 80x96)
+const PXX = 70, PXY = 124;   // 플레이어 스프라이트 좌상단 (발이 226 그림자선에 닿게)
 
 function mobPos(key) {
   const sz = px.mobSize(key, PXS);
@@ -166,14 +165,11 @@ async function actionGif(stateBefore, events, stateAfter, resultMsg, resultColor
   }
   add(scene(stateAfter, { msg: resultMsg, msgColor: resultColor || "#ffe9a8" }), 1700);
 
-  const pngs = [];
-  for (const svg of frames) pngs.push(await sharp(Buffer.from(svg)).png().toBuffer());
-  const gif = await sharp(pngs, { join: { across: 1, animated: true } }).gif({ loop: 1, delay: delays }).toBuffer();
-  return { gif, finalPng: pngs[pngs.length - 1], durationMs: delays.reduce((a, b) => a + b, 0) };
+  return framesToGif(frames, delays, W, H);
 }
 
 async function scenePng(state, msg, msgColor) {
-  return sharp(Buffer.from(scene(state, { msg, msgColor }))).png().toBuffer();
+  return svgToPng(scene(state, { msg, msgColor }), W, H);
 }
 
 module.exports = { scenePng, actionGif, scene };

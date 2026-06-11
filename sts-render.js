@@ -1,12 +1,11 @@
 // ── 등반 전투 렌더러 (도트 + 의도/에너지/블록/손패) ───────────────
-const sharp = require("sharp");
 const px = require("./px-sprites");
 const { CARDS, getCard } = require("./sts");
+const { svgToPng, framesToGif, easeOutCubic } = require("./utils");
 
 const W = 520, H = 400;
-const PXS = 5;
-const PXX = 78, PXY = 118;
-const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const PXS = 4; // 20x24 스프라이트 → 80x96
+const PXX = 78, PXY = 112; // 발이 218 그림자선에 닿게
 
 function mobPos(key) {
   const sz = px.mobSize(key, PXS);
@@ -304,14 +303,11 @@ async function cardPlayGif(runBefore, ev, runAfter, nextMsg) {
   // 마지막: 결과 상태 + 손패
   add(scene(runAfter, { msg: nextMsg, msgColor: "#ffe9a8" }), 1500);
 
-  const pngs = [];
-  for (const svg of frames) pngs.push(await sharp(Buffer.from(svg)).png().toBuffer());
-  const gif = await sharp(pngs, { join: { across: 1, animated: true } }).gif({ loop: 1, delay: delays }).toBuffer();
-  return { gif, finalPng: pngs[pngs.length - 1], durationMs: delays.reduce((a, b) => a + b, 0) };
+  return framesToGif(frames, delays, W, H);
 }
 
 async function scenePng(run, msg, msgColor) {
-  return sharp(Buffer.from(scene(run, { msg, msgColor }))).png().toBuffer();
+  return svgToPng(scene(run, { msg, msgColor }), W, H);
 }
 
 // 적 턴 연출 GIF (endTurn 이벤트 기반)
@@ -353,10 +349,7 @@ async function enemyTurnGif(runBefore, events, runAfter, resultMsg, resultColor)
   }
   add(scene(runAfter, { msg: resultMsg, msgColor: resultColor }), 1500);
 
-  const pngs = [];
-  for (const svg of frames) pngs.push(await sharp(Buffer.from(svg)).png().toBuffer());
-  const gif = await sharp(pngs, { join: { across: 1, animated: true } }).gif({ loop: 1, delay: delays }).toBuffer();
-  return { gif, finalPng: pngs[pngs.length - 1], durationMs: delays.reduce((a, b) => a + b, 0) };
+  return framesToGif(frames, delays, W, H);
 }
 
 module.exports = { scenePng, enemyTurnGif, cardPlayGif, scene, W, H };

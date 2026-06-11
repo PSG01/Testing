@@ -1,6 +1,6 @@
 // ── 연쇄 + 스캐터 섞임 + 착지 강조 GIF ────────────────────────────
-const sharp = require("sharp");
 const fruit = require("./fruit-symbols");
+const { framesToGif } = require("./utils");
 
 const COLS = 5, ROWS = 5, CELL = 72, GAP = 8, PAD = 18, HEADER = 60;
 const GRID_W = COLS * CELL + (COLS - 1) * GAP, GRID_H = ROWS * CELL + (ROWS - 1) * GAP;
@@ -130,12 +130,9 @@ function build(play, speed = 1) {
   return { frames, delays };
 }
 
-async function toGif(frames, delays) { const pngs = []; for (const svg of frames) pngs.push(await sharp(Buffer.from(svg)).png().toBuffer()); return sharp(pngs, { join: { across: 1, animated: true } }).gif({ loop: 1, delay: delays }).toBuffer(); }
 async function render(play, speed = 1) {
   const { frames, delays } = build(play, speed);
-  const pngs = [];
-  for (const svg of frames) pngs.push(await sharp(Buffer.from(svg)).png().toBuffer());
-  const gif = await sharp(pngs, { join: { across: 1, animated: true } }).gif({ loop: 1, delay: delays }).toBuffer();
-  return { gif, frameCount: frames.length, finalPng: pngs[pngs.length - 1], durationMs: delays.reduce((a, b) => a + b, 0) };
+  const out = await framesToGif(frames, delays, W, H);
+  return { ...out, frameCount: frames.length };
 }
 module.exports = { render };

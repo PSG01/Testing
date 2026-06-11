@@ -1,5 +1,5 @@
 // ── 카드 테이블 이미지 렌더러 (블랙잭/하이로우, PNG) ───────────────
-const sharp = require("sharp");
+const { svgToPng } = require("./utils");
 
 const CW = 88, CH = 124; // 카드 크기
 const RED = new Set(["♥", "♦"]);
@@ -56,7 +56,7 @@ async function blackjackPng(game, { reveal = false, dealerVal = "?", playerVal =
   body += hand(game.player, 28, 262);
   const title = resultText || "BLACKJACK";
   const svg = shell(body, W, H, title, resultText ? "#ffd770" : "#caa84a");
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  return svgToPng(svg, W, H);
 }
 
 // 하이로우: 현재 카드 크게 + (결과면) 다음 카드
@@ -72,7 +72,7 @@ async function highlowPng(game, { next = null, label = null, multText = "" } = {
   }
   body += `<text x="${W / 2}" y="${H - 36}" font-size="18" fill="#cfe8d4" text-anchor="middle" font-family="DejaVu Sans">${multText}</text>`;
   const svg = shell(body, W, H, label || "HIGH · LOW", label ? "#ffd770" : "#caa84a");
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  return svgToPng(svg, W, H);
 }
 
 module.exports = { blackjackPng, highlowPng };
