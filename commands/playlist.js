@@ -1,0 +1,91 @@
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const fs = require("node:fs");
+const path = require("node:path");
+const { checkVoice } = require("../utils");
+
+const FILE = path.join(__dirname, "..", "data", "playlists.json");
+function load() { try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; } }
+function save(d) { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(d)); }
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName("플리")
+    .setDescription("내 플레이리스트를 저장/재생/관리합니다 📃")
+    .addSubcommand((s) =>
+      s.setName("저장").setDescription("지금 재생 중인 곡과 재생 목록을 플레이리스트로 저장합니다")
+        .addStringOption((o) => o.setName("이름").setDescription("플레이리스트 이름").setRequired(true)))
+    .addSubcommand((s) =>
+      s.setName("재생").setDescription("저장해 둔 플레이리스트를 재생 목록에 담습니다")
+        .addStringOption((o) => o.setName("이름").setDescription("플레이리스트 이름").setRequired(true)))
+    .addSubcommand((s) => s.setName("목록").setDescription("내 플레이리스트 목록을 봅니다"))
+    .addSubcommand((s) =>
+      s.setName("삭제").setDescription("플레이리스트를 삭제합니다")
+        .addStringOption((o) => o.setName("이름").setDescription("플레이리스트 이름").setRequired(true))),
+
+  async execute(interaction, client) {
+    const sub = interaction.options.getSubcommand();
+    const userId = interaction.user.id;
+    const all = load();
+    const mine = (all[userId] = all[userId] || {});
+
+    if (sub === "저장") {
+      const name = interaction.options.getString("이름").slice(0, 30);
+      const player = client.lavalink.getPlayer(interaction.guild.id);
+      if (!player || (!player.queue.current && player.queue.tracks.length === 0))
+        return interaction.reply({ content: "⚠️ 저장할 곡이 없어요. 먼저 노래를 재생해 주세요.", ephemeral: true });
+      const tracks = [];
+      if (player.queue.current) tracks.push({ title: player.queue.current.info.title, uri: player.queue.current.info.uri });
+      for (const t of player.queue.tracks) tracks.push({ title: t.info.title, uri: t.info.uri });
+      mine[name] = tracks.slice(0, 100);
+      save(all);
+      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setTitle("📃 플레이리스트 저장")
+        .setDescription(`**${name}** — ${mine[name].length}곡 저장 완료\n\`/플리 재생 ${name}\` 으로 불러올 수 있어요.`)] });
+    }
+
+    if (sub === "목록") {
+      const names = Object.keys(mine);
+      if (!names.length) return interaction.reply({ content: "📃 저장된 플레이리스트가 없어요. `/플리 저장 [이름]` 으로 만들어 보세요.", ephemeral: true });
+      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865f2).setTitle("📃 내 플레이리스트")
+        .setDescription(names.map((n) => `• **${n}** (${mine[n].length}곡)`).join("\n"))] });
+    }
+
+    if (sub === "삭제") {
+      const name = interaction.options.getString("이름");
+      if (!mine[name]) return interaction.reply({ content: `⚠️ **${name}** 플레이리스트가 없어요.`, ephemeral: true });
+      delete mine[name];
+      save(all);
+      return interaction.reply({ content: `🗑️ **${name}** 플레이리스트를 삭제했어요.` });
+    }
+
+    if (sub === "재생") {
+      const name = interaction.options.getString("이름");
+      const list = mine[name];
+      if (!list || !list.length) return interaction.reply({ content: `⚠️ **${name}** 플레이리스트가 없어요. \`/플리 목록\` 으로 확인해 보세요.`, ephemeral: true });
+      const voiceCheck = checkVoice(interaction);
+      if (voiceCheck) return interaction.reply({ content: `⚠️ ${voiceCheck}`, ephemeral: true });
+      await interaction.deferReply();
+
+      let player = client.lavalink.getPlayer(interaction.guild.id);
+      if (!player) {
+        player = client.lavalink.createPlayer({
+          guildId: interaction.guild.id,
+          voiceChannelId: interaction.member.voice.channel.id,
+          textChannelId: interaction.channel.id,
+          selfDeaf: true,
+          volume: 80,
+        });
+      }
+      if (!player.connected) await player.connect();
+
+      let added = 0;
+      for (const t of list) {
+        try {
+          const res = await player.search({ query: t.uri }, interaction.user);
+          if (res?.tracks?.length) { await player.queue.add(res.tracks[0]); added++; }
+        } catch { /* 한 곡 실패는 건너뜀 */ }
+      }
+      if (!player.playing && !player.paused) await player.play();
+      return interaction.editReply(`📃 **${name}** — ${added}/${list.length}곡을 재생 목록에 담았어요.`);
+    }
+  },
+};

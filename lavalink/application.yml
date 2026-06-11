@@ -1,0 +1,45 @@
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    # ⚠️ Lavalink v4 부터 YouTube 소스는 코어에서 빠지고 별도 플러그인이 됐습니다.
+    #    아래 버전 숫자는 예시이며, 최신 버전을 반드시 확인하세요:
+    #    https://github.com/lavalink-devs/youtube-source/releases
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
+      repository: "https://maven.lavalink.dev/releases"
+  server:
+    password: "youshallnotpass" # .env 의 LAVALINK_PASSWORD 와 일치해야 함
+    sources:
+      # 코어 내장 youtube 는 v4 에서 비활성 (위 플러그인이 대신 처리)
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+
+# YouTube 플러그인 세부 설정
+plugins:
+  youtube:
+    enabled: true
+    # 안정성을 위해 여러 클라이언트를 사용 (일부가 막혀도 폴백)
+    clients:
+      - MUSIC
+      - WEB
+      - WEBEMBEDDED
+      - ANDROID_VR
+      - TVHTML5EMBEDDED
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO

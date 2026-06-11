@@ -1,0 +1,19 @@
+{
+  "name": "music-casino-bot",
+  "version": "1.1.0",
+  "description": "discord.js v14 통합 봇 — 음악(Lavalink) + 카지노 게임(슬롯/연쇄/블랙잭/하이로우, GIF 연출)",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "lavalink-client": "^2.5.0",
+    "dotenv": "^16.4.5",
+    "sharp": "^0.34.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
