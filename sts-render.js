@@ -126,12 +126,19 @@ function cardIcon(fx, x, y, s) {
   const ic = ICON[fx] || ICON.slash;
   return `<g shape-rendering="crispEdges">${px.drawGrid(ic.g, ic.pal, x, y, s)}</g>`;
 }
-// 손패 카드 (이미지 하단)
+// 손패 카드 (이미지 하단) — 손패가 많으면 카드 크기를 줄여 화면 안에 전부 표시
 function handCards(hand, energy) {
   const n = hand.length;
   if (!n) return "";
-  const cw = 86, ch = 104, gap = 8;
-  const total = n * cw + (n - 1) * gap;
+  let cw = 86, ch = 104, gap = 8;
+  let total = n * cw + (n - 1) * gap;
+  const maxW = W - 16;
+  if (total > maxW) {
+    const k = maxW / total;
+    cw = Math.floor(cw * k);
+    gap = Math.max(3, Math.floor(gap * k));
+    total = n * cw + (n - 1) * gap;
+  }
   const x0 = (W - total) / 2;
   let s = "";
   hand.forEach((key, i) => {
